@@ -1,67 +1,59 @@
-const Connection = @import("connection.zig");
 const std = @import("std");
+const builtin = @import("builtin");
+const root = @import("root");
+
+const AuthInfo = struct {
+    // endiannes
+    family: u16 = 0,
+    address: []const u8 = "",
+    number: []const u8 = "",
+    name: []const u8 = "",
+    data: []const u8 = "",
+};
+
+fn readString(gpa: *std.mem.Allocator, file: std.fs.File) ![]u8 {
+    const stream = file.reader();
+
+    const len = try stream.readInt(u16, .big);
+    const buf = try gpa.alloc(u8, len);
+    errdefer gpa.free(buf);
+
+    try stream.readNoEof(buf);
+    return buf;
+}
+
+fn deserialize(comptime Struct: type, allocator: *std.mem.Allocator, file: std.fs.File) !Struct {
+    const reader = file.reader();
+
+    var auth_info = Struct{};
+    inline for (@typeInfo(Struct).Struct.fields) |field| {
+        @field(auth_info, field.name) = brk: {
+            if (@typeInfo(field.type) == .Int) {
+                break :brk try reader.readInt(field.type, .big);
+            } else {
+                break :brk try readString(allocator, file);
+            }
+        };
+    }
+
+    return auth_info;
+}
 
 pub fn main() !void {
-    const page_alloc = std.heap.page_allocator;
+    var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
+    defer std.debug.assert(general_purpose_allocator.deinit() == .ok);
+    var allocator = general_purpose_allocator.allocator();
 
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
+    var socket = try std.net.connectUnixSocket("/tmp/.X11-unix/X0");
+    defer socket.close();
 
-    const home = try std.process.getEnvVarOwned(gpa.allocator(), "HOME");
-    defer gpa.allocator().free(home);
+    const x_authority = try std.fs.openFileAbsolute(std.posix.getenv("XAUTHORITY").?, .{});
+    defer x_authority.close();
 
-    var dir = try std.fs.cwd().openDir(home, .{});
-    defer dir.close();
+    var hostname_buf: [std.posix.HOST_NAME_MAX]u8 = undefined;
+    const hostname = try std.posix.gethostname(&hostname_buf);
+    _ = hostname;
 
-    const xau = try dir.openFile(".Xauthority", .{});
-    defer xau.close();
-
-    // const stream = &xau.reader();
-    // const data = try stream.readInt([]u8, .little);
-
-    // std.debug.print("{any}", .{data});
-
-    var connection: Connection.Connection = Connection.Connection{
-        .stream = undefined,
-        .gpa = @constCast(&gpa.allocator()),
-    };
-
-    connection.stream = Connection.Display() catch |err| {
-        switch (err) {
-            Connection.DisplayErrors.UnixSocketError => {
-                std.debug.print("Error connecting to UNIX socket\n", .{});
-                return err;
-            },
-            // handle any more errors
-        }
-    };
-    errdefer connection.stream.close();
-
-    std.debug.print("Successfully Connected {any}\n", .{connection.stream});
-
-    _ = Connection.ConnectionSetup(connection.stream) catch |err| {
-        switch (err) {
-            Connection.ConnectionErrors.InvalidSetupResponse => {
-                std.debug.print("Something went wrong setting up", .{});
-
-                return err;
-            },
-            Connection.ConnectionErrors.StreamError => {
-                std.debug.print("Something went wrong setting up", .{});
-
-                return err;
-            },
-            Connection.ConnectionErrors.UnableToConnect => {
-                std.debug.print("Something went wrong setting up", .{});
-
-                return err;
-            },
-        }
-    };
-
-    _ = Connection.ConnectionResponse(@constCast(&page_alloc), connection.stream) catch {
-        return;
-    };
-
-    // initialize connection setup
+    const auth_info = try deserialize(AuthInfo, @constCast(&allocator), x_authority);
+    _ = auth_info;
 }
