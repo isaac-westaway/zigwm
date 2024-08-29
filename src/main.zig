@@ -28,10 +28,14 @@ fn deserialize(comptime Struct: type, allocator: *std.mem.Allocator, file: std.f
     var auth_info = Struct{};
     inline for (@typeInfo(Struct).Struct.fields) |field| {
         @field(auth_info, field.name) = brk: {
-            if (@typeInfo(field.type) == .Int) {
+            if (comptime @typeInfo(field.type) == .Int) {
                 break :brk try reader.readInt(field.type, .big);
-            } else {
+
+                // fix to check u8 const []
+            } else if (comptime @typeInfo(field.type) != .Int) {
                 break :brk try readString(allocator, file);
+            } else {
+                @compileError("error");
             }
         };
     }
@@ -42,7 +46,7 @@ fn deserialize(comptime Struct: type, allocator: *std.mem.Allocator, file: std.f
 pub fn main() !void {
     var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
     defer std.debug.assert(general_purpose_allocator.deinit() == .ok);
-    var allocator = general_purpose_allocator.allocator();
+    const allocator = general_purpose_allocator.allocator();
 
     var socket = try std.net.connectUnixSocket("/tmp/.X11-unix/X0");
     defer socket.close();
@@ -54,6 +58,12 @@ pub fn main() !void {
     const hostname = try std.posix.gethostname(&hostname_buf);
     _ = hostname;
 
-    const auth_info = try deserialize(AuthInfo, @constCast(&allocator), x_authority);
-    _ = auth_info;
+    var heap_arena_allocator = std.heap.ArenaAllocator.init(allocator);
+    var arena_allocator = heap_arena_allocator.allocator();
+    defer heap_arena_allocator.deinit();
+
+    const auth_info = try deserialize(AuthInfo, @constCast(&arena_allocator), x_authority);
+    // _ = auth_info;
+
+    std.debug.print("{any}", .{auth_info});
 }
