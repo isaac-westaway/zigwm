@@ -3,7 +3,7 @@ const std = @import("std");
 const x11 = @import("x11.zig");
 
 pub const Connection = struct {
-    stream: DisplayErrors!std.net.Stream,
+    stream: std.net.Stream,
     gpa: *std.mem.Allocator,
 };
 
@@ -25,18 +25,34 @@ pub fn Display() DisplayErrors!std.net.Stream {
         std.debug.print("Failed to connect to the Unix socket\n", .{});
         return DisplayErrors.UnixSocketError;
     };
-    errdefer stream.close();
-
-    std.debug.print("Connected successfully: {}\n", .{stream});
 
     return stream;
 }
 
 // read contents of .XAuthority and pass it in
-pub fn ConnectionSetup(stream: std.net.Stream, auth: []u8) ConnectionErrors!void {
-    stream.writeAll(x11.SetupRequest{
-        .authorization_protocol_data = auth,
-    });
+pub fn ConnectionSetup(stream: std.net.Stream) ConnectionErrors!void {
+    // const zigwm = x11.SetupRequest{
+    //     .byte_order = 0x6C,
+    //     .major_version = 11,
+    //     .minor_version = 0,
+    // };
+
+    // stream.writeAll(std.mem.asBytes(&zigwm)) catch {
+    //     return;
+    // };
+
+    stream.writeAll("Hello") catch {
+        return;
+    };
+}
+
+pub fn ConnectionResponse(allocator: *std.mem.Allocator, stream: std.net.Stream) !void {
+    const buffer = try allocator.alloc(u8, 32);
+    defer allocator.free(buffer);
+
+    const streamer = try stream.read(buffer);
+
+    std.debug.print("{any}", .{streamer});
 }
 
 // Non-public subroutines

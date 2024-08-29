@@ -1,25 +1,25 @@
 const Connection = @import("connection.zig");
 const std = @import("std");
-const utils = @import("utils.zig");
 
 pub fn main() !void {
-    const page = std.heap.page_allocator;
+    const page_alloc = std.heap.page_allocator;
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
 
-    // error handling for correct types
-    const current_user = std.process.getEnvVarOwned(page, "USER") catch |err| {
-        std.debug.print("Error: {}\n", .{err});
-        return;
-    };
+    const home = try std.process.getEnvVarOwned(gpa.allocator(), "HOME");
+    defer gpa.allocator().free(home);
 
-    // Convert the result into an array of u8
-    const text: []u8 = current_user;
+    var dir = try std.fs.cwd().openDir(home, .{});
+    defer dir.close();
 
-    const new = utils.AsciiToText(@constCast(&page), text);
+    const xau = try dir.openFile(".Xauthority", .{});
+    defer xau.close();
 
-    std.debug.print("user: {any}\n", .{new});
+    // const stream = &xau.reader();
+    // const data = try stream.readInt([]u8, .little);
+
+    // std.debug.print("{any}", .{data});
 
     var connection: Connection.Connection = Connection.Connection{
         .stream = undefined,
@@ -35,16 +35,33 @@ pub fn main() !void {
             // handle any more errors
         }
     };
+    errdefer connection.stream.close();
 
-    // try Connection.ConnectionSetup(connection.stream) catch |err| {
-    //     switch (err) {
-    //         Connection.ConnectionErrors.InvalidSetupResponse => {
-    //             std.debug.print("Something went wrong setting up");
+    std.debug.print("Successfully Connected {any}\n", .{connection.stream});
 
-    //             return err;
-    //         },
-    //     }
-    // };
+    _ = Connection.ConnectionSetup(connection.stream) catch |err| {
+        switch (err) {
+            Connection.ConnectionErrors.InvalidSetupResponse => {
+                std.debug.print("Something went wrong setting up", .{});
+
+                return err;
+            },
+            Connection.ConnectionErrors.StreamError => {
+                std.debug.print("Something went wrong setting up", .{});
+
+                return err;
+            },
+            Connection.ConnectionErrors.UnableToConnect => {
+                std.debug.print("Something went wrong setting up", .{});
+
+                return err;
+            },
+        }
+    };
+
+    _ = Connection.ConnectionResponse(@constCast(&page_alloc), connection.stream) catch {
+        return;
+    };
 
     // initialize connection setup
 }
