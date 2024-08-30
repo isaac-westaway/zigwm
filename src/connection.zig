@@ -2,6 +2,8 @@ const std = @import("std");
 const builtin = @import("builtin");
 const root = @import("root");
 
+const Structs = @import("structs.zig");
+
 // what is this magic?
 pub fn xpad(n: usize) usize {
     return @as(usize, @bitCast((-%@as(isize, @bitCast(n))) & 3));
@@ -61,4 +63,22 @@ pub fn deserialize(comptime Struct: type, allocator: *std.mem.Allocator, file: s
     }
 
     return auth_info;
+}
+
+// this is also magic
+pub fn parseSetupType(wanted: anytype, buffer: []u8) usize {
+    std.debug.assert(@typeInfo(@TypeOf(wanted)) == .Pointer);
+    var size: usize = 0;
+
+    var new = @constCast(wanted);
+
+    if (@TypeOf(new) == []Structs.VisualType) {
+        size = @sizeOf(@TypeOf(new[0]));
+        new = std.mem.bytesToValue(@TypeOf(new), buffer[0..size]);
+    } else {
+        size = @sizeOf(@TypeOf(new.*));
+        new.* = std.mem.bytesToValue(@TypeOf(new.*), buffer[0..size]);
+    }
+
+    return size;
 }
