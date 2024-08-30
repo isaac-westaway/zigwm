@@ -24,6 +24,10 @@ pub fn send(stream: std.net.Stream, data: anytype) !void {
     }
 }
 
+pub fn recv(connection: *Structs.XConnection, comptime T: type) !T {
+    return connection.reader().readStruct(T);
+}
+
 pub fn readString(allocator: *std.mem.Allocator, file: std.fs.File) ![]u8 {
     const stream = file.reader();
 
@@ -81,4 +85,136 @@ pub fn parseSetupType(wanted: anytype, buffer: []u8) usize {
     }
 
     return size;
+}
+
+pub fn parseSetup(allocator: *std.mem.Allocator, connection: *Structs.XConnection, buffer: []u8) !void {
+
+    // nevermind, a status code of 1 is a success
+    var initial_setup: Structs.FullSetup = undefined;
+    var index: usize = parseSetupType(&initial_setup, buffer);
+
+    connection.setup = Structs.InitialSetup{ .base = initial_setup.resource_id_base, .mask = initial_setup.resource_id_mask, .min_keycode = initial_setup.min_keycode, .max_keycode = initial_setup.max_keycode };
+
+    const vendor = buffer[index .. index + initial_setup.vendor_len];
+    index += vendor.len;
+
+    // ! TODO: Better Memory Management
+    const formats = try allocator.alloc(Structs.Format, initial_setup.pixmap_formats_len);
+    // errdefer arena_allocator.free(formats);
+
+    for (formats) |*f| {
+        var format: Structs.Format = undefined;
+
+        index += parseSetupType(&format, buffer[index..]);
+
+        f.* = .{
+            .depth = format.depth,
+            .bits_per_pixel = format.bits_per_pixel,
+            .scanline_pad = format.scanline_pad,
+            .pad0 = format.pad0,
+        };
+    }
+
+    // ! TODO: Better Memory Management
+    const screens = try allocator.alloc(Structs.Screen, initial_setup.roots_len);
+    // errdefer arena_allocator.free(screens);
+
+    for (screens) |*s| {
+        var screen: Structs.Screen = undefined;
+        index += parseSetupType(&screen, buffer[index..]);
+
+        const depths = try allocator.alloc(Structs.Depth, screen.allowed_depths_len);
+        errdefer allocator.free(depths);
+
+        for (depths) |*d| {
+            var depth: Structs.Depth = undefined;
+            index += parseSetupType(&depth, buffer[index..]);
+
+            const visual_types = try allocator.alloc(Structs.VisualType, depth.visuals_len);
+            // errdefer allocator.free(visual_types);
+
+            for (visual_types) |*t| {
+                const visual_type: Structs.VisualType = undefined;
+                index += parseSetupType(visual_types, buffer[index..]);
+
+                t.* = .{
+                    .visual_id = visual_type.visual_id,
+                    .class = visual_type.class,
+                    .bits_per_rgb_value = visual_type.bits_per_rgb_value,
+                    .colormap_entries = visual_type.colormap_entries,
+                    .red_mask = visual_type.red_mask,
+                    .green_mask = visual_type.green_mask,
+                    .blue_mask = visual_type.blue_mask,
+                    .pad0 = visual_type.pad0,
+                };
+            }
+
+            d.* = .{
+                .depth = depth.depth,
+                .pad0 = depth.pad0,
+                .visuals_len = depth.visuals_len,
+                // ! .visual_types = visual_types,
+                .pad1 = depth.pad1,
+            };
+        }
+
+        s.* = .{
+            .root = screen.root,
+            .default_colormap = screen.default_colormap,
+            .white_pixel = screen.white_pixel,
+            .black_pixel = screen.black_pixel,
+            .current_input_mask = screen.current_input_mask,
+            .width_pixel = screen.width_pixel,
+            .height_pixel = screen.height_pixel,
+            .width_milimeter = screen.width_milimeter,
+            .height_milimeter = screen.height_milimeter,
+            .min_installed_maps = screen.min_installed_maps,
+            .max_installed_maps = screen.max_installed_maps,
+            .root_visual = screen.root_visual,
+            .backing_store = screen.backing_store,
+            .save_unders = screen.save_unders,
+            .root_depth = screen.root_depth,
+            .allowed_depths_len = screen.allowed_depths_len,
+            // ! .depths = depths,
+        };
+    }
+
+    if (index != buffer.len) {
+        return error.IncorrectSetup;
+    }
+
+    connection.formats = formats;
+    connection.screen = screens;
+}
+
+pub fn genXId(connection: *Structs.XConnection, socket: std.net.Stream, xid: Structs.XId) !u32 {
+    var ret: u32 = 0;
+
+    if (connection.status != .Ok) {
+        return error.InvalidConnection;
+    }
+
+    var modifiable_xid: Structs.XId = xid;
+
+    const temp = modifiable_xid.max -% modifiable_xid.inc;
+    if (modifiable_xid.last >= temp) {
+        if (modifiable_xid.last == 0) {
+            modifiable_xid.max = connection.setup.mask;
+        } else {
+            // ! extension handling
+            // ! for the purposes of this simple { :( } window manager do not bother
+
+            try send(socket, Structs.IdRangeRequest{});
+
+            const reply = try recv(@constCast(connection), Structs.IdRangeReply);
+
+            modifiable_xid.last = reply.start_id;
+            modifiable_xid.max = reply.start_id + (reply.count - 1) * modifiable_xid.inc;
+        }
+    } else {
+        modifiable_xid.last += modifiable_xid.inc;
+    }
+
+    ret = modifiable_xid.last | modifiable_xid.base | modifiable_xid.max;
+    return ret;
 }

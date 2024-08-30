@@ -2,6 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 const XType = @import("types.zig");
+const Enums = @import("enums.zig");
 
 /// basic Structs
 pub const AuthInfo = struct {
@@ -11,6 +12,19 @@ pub const AuthInfo = struct {
     number: []const u8 = undefined,
     name: []const u8 = undefined,
     data: []const u8 = undefined,
+};
+
+pub const ValueMask = struct {
+    mask: Enums.WindowAttributes,
+    value: u32,
+};
+
+pub const CreateWindowOptions = struct {
+    width: u16,
+    height: u16,
+    title: ?[]const u8 = null,
+    class: Enums.WindowClass = .copy,
+    values: []const ValueMask = &[_]ValueMask{},
 };
 
 /// must stay the asme
@@ -99,11 +113,46 @@ pub const VisualType = extern struct {
     pad0: [4]u8,
 };
 
-/// Window Manager Classes
+pub const CreateWindowRequest = extern struct {
+    major_opcode: u8 = 1,
+    depth: u8 = 0,
+    length: u16,
+    wid: XType.Types.Window,
+    parent: XType.Types.Window,
+    x: i16 = 0,
+    y: i16 = 0,
+    width: u16,
+    height: u16,
+    border_width: u16 = 0,
+    class: u16 = 0,
+    visual: XType.Types.Window,
+    value_mask: u32,
+};
+
+pub const IdRangeRequest = extern struct {
+    major_opcode: u8 = 136,
+    minor_opcode: u8 = 1,
+    length: u16 = 1,
+};
+
+pub const IdRangeReply = extern struct {
+    response_type: u8,
+    pad0: u8,
+    sequence: u16,
+    length: u32,
+    start_id: u32,
+    count: u32,
+    pad1: [16]u8,
+};
+
+// Classes
+
 pub const XConnection = struct {
     stream: std.net.Stream,
     formats: []Format,
     screen: []Screen,
+    setup: InitialSetup,
+    status: Enums.Status,
 
     pub fn reader(self: *XConnection) std.io.Reader(*XConnection, std.fs.File.ReadError, read) {
         return .{ .context = self };
@@ -111,5 +160,23 @@ pub const XConnection = struct {
 
     pub fn read(self: *XConnection, buffer: []u8) std.fs.File.ReadError!usize {
         return std.posix.read(self.stream.handle, buffer);
+    }
+};
+
+pub const XId = struct {
+    last: u32,
+    max: u32,
+    base: u32,
+    inc: u32,
+
+    pub fn init(connection: XConnection) XId {
+        // we could use @setRuntimeSafety(false) in this case
+        const inc: u32 = connection.setup.mask & ~connection.setup.mask;
+        return XId{
+            .last = 0,
+            .max = 0,
+            .base = connection.setup.base,
+            .inc = @as(u32, inc),
+        };
     }
 };
