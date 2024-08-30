@@ -1,58 +1,64 @@
 const std = @import("std");
+const builtin = @import("builtin");
+const root = @import("root");
 
-const x11 = @import("x11.zig");
-
-pub const Connection = struct {
-    stream: std.net.Stream,
-    gpa: *std.mem.Allocator,
-};
-
-pub const DisplayErrors = error{
-    UnixSocketError,
-};
-
-pub const ConnectionErrors = error{
-    UnableToConnect,
-    InvalidSetupResponse,
-    StreamError,
-};
-
-// public subroutines to be used in main
-// return a handle to the X11 unix socket, to be read and written from later
-pub fn Display() DisplayErrors!std.net.Stream {
-    // $ Xephyr :1 -ac -screen 800x600
-    const stream: std.net.Stream = std.net.connectUnixSocket("/tmp/.X11-unix/X1") catch {
-        std.debug.print("Failed to connect to the Unix socket\n", .{});
-        return DisplayErrors.UnixSocketError;
-    };
-
-    return stream;
+// what is this magic?
+pub fn xpad(n: usize) usize {
+    return @as(usize, @bitCast((-%@as(isize, @bitCast(n))) & 3));
 }
 
-// read contents of .XAuthority and pass it in
-pub fn ConnectionSetup(stream: std.net.Stream) ConnectionErrors!void {
-    // const zigwm = x11.SetupRequest{
-    //     .byte_order = 0x6C,
-    //     .major_version = 11,
-    //     .minor_version = 0,
-    // };
+pub fn send(stream: std.net.Stream, data: anytype) !void {
+    const dataType = @TypeOf(data);
 
-    // stream.writeAll(std.mem.asBytes(&zigwm)) catch {
-    //     return;
-    // };
-
-    stream.writeAll("Hello") catch {
-        return;
-    };
+    switch (dataType) {
+        []u8, []const u8 => {
+            std.debug.print("Sending strings \n", .{});
+            try stream.writeAll(data);
+        },
+        else => {
+            std.debug.print("Sending bytes \n", .{});
+            try stream.writeAll(std.mem.asBytes(&data));
+        },
+    }
 }
 
-pub fn ConnectionResponse(allocator: *std.mem.Allocator, stream: std.net.Stream) !void {
-    const buffer = try allocator.alloc(u8, 32);
-    defer allocator.free(buffer);
+pub fn readString(allocator: *std.mem.Allocator, file: std.fs.File) ![]u8 {
+    const stream = file.reader();
 
-    const streamer = try stream.read(buffer);
+    const len = try stream.readInt(u16, .big);
+    const buf = try allocator.alloc(u8, len);
+    errdefer allocator.free(buf);
 
-    std.debug.print("{any}", .{streamer});
+    try stream.readNoEof(buf);
+    return buf;
 }
 
-// Non-public subroutines
+pub fn deallocateAllStrings(allocator: *std.mem.Allocator, Struct: anytype) void {
+    inline for (comptime @typeInfo(@TypeOf(Struct)).Struct.fields) |field| {
+        // TODO: type []const u8
+        if (comptime @typeInfo(field.type) != .Int) {
+            allocator.free(@field(Struct, field.name));
+        }
+    }
+}
+
+pub fn deserialize(comptime Struct: type, allocator: *std.mem.Allocator, file: std.fs.File) !Struct {
+    const reader = file.reader();
+
+    var auth_info = Struct{};
+    inline for (@typeInfo(Struct).Struct.fields) |field| {
+        @field(auth_info, field.name) = brk: {
+            if (comptime @typeInfo(field.type) == .Int) {
+                break :brk try reader.readInt(field.type, .big);
+
+                // TODO: fix to check u8 const []
+            } else if (comptime @typeInfo(field.type) != .Int) {
+                break :brk try readString(allocator, file);
+            } else {
+                @compileError("Unknown field type");
+            }
+        };
+    }
+
+    return auth_info;
+}
