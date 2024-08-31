@@ -116,7 +116,7 @@ pub fn parseSetup(allocator: *std.mem.Allocator, connection: *Structs.XConnectio
     }
 
     // ! TODO: Better Memory Management
-    const screens = try allocator.alloc(Structs.Screen, initial_setup.roots_len);
+    const screens: []Structs.Screen = try allocator.alloc(Structs.Screen, initial_setup.roots_len);
     // errdefer arena_allocator.free(screens);
 
     for (screens) |*s| {
@@ -184,7 +184,7 @@ pub fn parseSetup(allocator: *std.mem.Allocator, connection: *Structs.XConnectio
     }
 
     connection.formats = formats;
-    connection.screen = screens;
+    connection.screens = screens;
 }
 
 pub fn genXId(connection: *Structs.XConnection, socket: std.net.Stream, xid: Structs.XId) !u32 {
@@ -200,6 +200,7 @@ pub fn genXId(connection: *Structs.XConnection, socket: std.net.Stream, xid: Str
     if (modifiable_xid.last >= temp) {
         if (modifiable_xid.last == 0) {
             modifiable_xid.max = connection.setup.mask;
+            std.debug.print("Max if Zero: {any}\n", .{modifiable_xid.max});
         } else {
             // ! extension handling
             // ! for the purposes of this simple { :( } window manager do not bother
@@ -208,12 +209,18 @@ pub fn genXId(connection: *Structs.XConnection, socket: std.net.Stream, xid: Str
 
             const reply = try recv(@constCast(connection), Structs.IdRangeReply);
 
+            std.debug.print("Modifiable XID:{any}\n", .{modifiable_xid.inc});
+
             modifiable_xid.last = reply.start_id;
             modifiable_xid.max = reply.start_id + (reply.count - 1) * modifiable_xid.inc;
         }
     } else {
         modifiable_xid.last += modifiable_xid.inc;
     }
+
+    // std.debug.print("{}", .{modifiable_xid});
+    std.debug.print("Last: {any}", .{modifiable_xid.last});
+    std.debug.print("Base: {any}", .{modifiable_xid.base});
 
     ret = modifiable_xid.last | modifiable_xid.base | modifiable_xid.max;
     return ret;

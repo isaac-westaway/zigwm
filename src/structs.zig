@@ -129,6 +129,13 @@ pub const CreateWindowRequest = extern struct {
     value_mask: u32,
 };
 
+pub const MapWindowRequest = extern struct {
+    major_opcode: u8 = 8,
+    pad0: u8 = 0,
+    length: u16 = @sizeOf(MapWindowRequest) / 4,
+    window: XType.Types.Window,
+};
+
 pub const IdRangeRequest = extern struct {
     major_opcode: u8 = 136,
     minor_opcode: u8 = 1,
@@ -145,12 +152,24 @@ pub const IdRangeReply = extern struct {
     pad1: [16]u8,
 };
 
+pub const ChangePropertyRequest = extern struct {
+    major_opcode: u8 = 18,
+    mode: u8,
+    length: u16,
+    window: XType.Types.Window,
+    property: XType.Types.Atom,
+    prop_type: XType.Types.Atom,
+    format: u8 = 8, // by default we make our slices into bytes
+    pad0: [3]u8 = [_]u8{0} ** 3,
+    data_len: u32,
+};
+
 // Classes
 
 pub const XConnection = struct {
     stream: std.net.Stream,
     formats: []Format,
-    screen: []Screen,
+    screens: []Screen,
     setup: InitialSetup,
     status: Enums.Status,
 
@@ -178,5 +197,28 @@ pub const XId = struct {
             .base = connection.setup.base,
             .inc = @as(u32, inc),
         };
+    }
+};
+
+pub const Window = struct {
+    handle: u32,
+
+    pub fn send(stream: std.net.Stream, data: anytype) !void {
+        const dataType = @TypeOf(data);
+
+        switch (dataType) {
+            []u8, []const u8 => {
+                std.debug.print("\nSending strings \n", .{});
+                try stream.writeAll(data);
+            },
+            else => {
+                std.debug.print("\nSending bytes \n", .{});
+                try stream.writeAll(std.mem.asBytes(&data));
+            },
+        }
+    }
+
+    pub fn map(self: Window, socket: std.net.Stream) !void {
+        try send(socket, MapWindowRequest{ .window = self.handle });
     }
 };

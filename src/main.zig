@@ -4,6 +4,8 @@ const root = @import("root");
 
 const Connection = @import("connection.zig");
 const Structs = @import("structs.zig");
+const Window = @import("window.zig");
+const Atoms = @import("atoms.zig");
 
 pub fn main() !void {
     // for top level allocation
@@ -57,7 +59,7 @@ pub fn main() !void {
     var connection: Structs.XConnection = Structs.XConnection{
         .stream = socket,
         .formats = undefined,
-        .screen = undefined,
+        .screens = undefined,
         .status = undefined,
         .setup = undefined,
     };
@@ -87,26 +89,48 @@ pub fn main() !void {
 
     try Connection.parseSetup(@constCast(&arena_allocator), &connection, setup_buffer);
 
-    std.debug.print("{any}\n", .{connection});
+    // std.debug.print("{any}\n", .{connection});
 
     const window_xid: u32 = try Connection.genXId(&connection, socket, xid);
-
-    std.debug.print("{any}\n", .{window_xid});
-
+    // _ = window_xid;
     // access the connection root integer (it is the windowID) and use it to craete windows
 
-    // const options: Structs.CreateWindowOptions = comptime Structs.CreateWindowOptions{
-    //     .width = 800,
-    //     .height = 600,
-    // };
+    const options: Structs.CreateWindowOptions = comptime Structs.CreateWindowOptions{
+        .width = 800,
+        .height = 600,
+    };
 
-    // const mask: u32 = blk: {
-    //     var tmp: u32 = 0;
-    //     for (options.values) |val| tmp |= val.mask.toInt();
-    //     break :blk tmp;
-    // };
+    const mask: u32 = blk: {
+        var tmp: u32 = 0;
+        for (options.values) |val| tmp |= val.mask.toInt();
+        break :blk tmp;
+    };
+    // _ = mask;
 
-    // const window_request = Structs.CreateWindowRequest{
-    //     .length = @sizeOf(Structs.CreateWindowRequest) / 4 + @intCast(options.values.len),
-    // };
+    const window_request = Structs.CreateWindowRequest{
+        .length = @sizeOf(Structs.CreateWindowRequest) / 4 + @as(u16, options.values.len),
+        .wid = window_xid,
+        .parent = connection.screens[0].root,
+        .width = options.width,
+        .height = options.height,
+        .visual = connection.screens[0].root_visual,
+        .value_mask = mask,
+        .class = options.class.toInt(),
+    };
+
+    try Connection.send(socket, window_request);
+    for (options.values) |val| {
+        try Connection.send(socket, val.value);
+    }
+
+    const window = Structs.Window{
+        .handle = window_xid,
+    };
+
+    std.debug.print("Window: {any}", .{window});
+    if (options.title) |title| {
+        try Window.ChangeProperty(window, socket, .replace, Atoms.Atoms.wm_name, Atoms.Atoms.string, .{ .string = title });
+    }
+
+    try window.map(socket);
 }
