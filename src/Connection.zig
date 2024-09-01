@@ -181,20 +181,22 @@ pub const XConnection = struct {
 
         std.log.scoped(.XConnection_initiateConnection).info("Trying to read response", .{});
         const header: Structs.SetupGeneric = try stream.readStruct(Structs.SetupGeneric);
+        std.log.scoped(.XConnection_initiateConnection).info("Header Status Early: {}", .{header.status});
 
         // ! TODO: fix the array out of bounds error. the buffer has been allocated
         // ! more than enough memory as a simple workaround
-        const setup_buffer: []u8 = try self.allocator.alloc(u8, header.length * 8);
-        defer self.allocator.free(setup_buffer);
 
         std.log.scoped(.XConnection_initiateConnection).info("Trying to load the response into setup_buffer", .{});
         std.log.scoped(.XConnection_initiateConnection).info("There is a chance the error is here and the setup buffer isn't large enough", .{});
+        const setup_buffer: []u8 = try self.allocator.alloc(u8, header.length * 4);
+        defer self.allocator.free(setup_buffer);
+
+        // ! error here
         try stream.readNoEof(setup_buffer);
 
         // ! the program does not make it here, it terminates at the readNoEof
         std.log.scoped(.XConnection_initiateConnection).info("Completed stream reading", .{});
 
-        // ! error here
         std.log.scoped(.XConnection_initiateConnection).info("Recieved XServer response for the setup", .{});
         if (header.status == 1) {
             self.status = .Ok;
@@ -209,7 +211,7 @@ pub const XConnection = struct {
             self.status = .Warning;
         }
 
-        std.debug.assert(header.status == 1);
+        // std.debug.assert(header.status == 1);
 
         std.log.scoped(.XConnection_initiateConnection).info("Successfully recieved response, trying to parse setup", .{});
         try self.parseSetup(@constCast(&arena_allocator.*), setup_buffer);

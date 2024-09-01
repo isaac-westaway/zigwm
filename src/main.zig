@@ -91,13 +91,13 @@ pub fn main() !void {
     try x_root_window.initializeRootWindow();
     // event loop to prevent auto shutdown
 
-    // const argv: []const []const u8 = &[_][]const u8{
-    //     // terminal
-    //     "kitty",
-    // };
+    const argv: []const []const u8 = &[_][]const u8{
+        // terminal
+        "kitty",
+    };
 
-    // const echo = try std.process.Child.run(.{ .allocator = allocator, .argv = argv });
-    // _ = echo;
+    const echo = try std.process.Child.run(.{ .allocator = allocator, .argv = argv });
+    _ = echo;
 
     while (true) {}
 }
