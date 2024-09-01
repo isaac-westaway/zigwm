@@ -150,48 +150,7 @@ pub const ChangePropertyRequest = extern struct {
     window: XType.Types.Window,
     property: XType.Types.Atom,
     prop_type: XType.Types.Atom,
-    format: u8 = 8, // by default we make our slices into bytes
+    format: u8 = 8, // by default make our slices into bytes
     pad0: [3]u8 = [_]u8{0} ** 3,
     data_len: u32,
-};
-
-// Classes
-
-pub const XConnection = struct {
-    stream: std.net.Stream,
-    formats: []Format,
-    screens: []Screen,
-    setup: InitialSetup,
-    status: Enums.Status,
-
-    pub fn reader(self: *XConnection) std.io.Reader(*XConnection, std.fs.File.ReadError, read) {
-        return .{ .context = self };
-    }
-
-    pub fn read(self: *XConnection, buffer: []u8) std.fs.File.ReadError!usize {
-        return std.posix.read(self.stream.handle, buffer);
-    }
-};
-
-pub const Window = struct {
-    handle: u32,
-
-    pub fn send(stream: std.net.Stream, data: anytype) !void {
-        const dataType = @TypeOf(data);
-
-        switch (dataType) {
-            []u8, []const u8 => {
-                std.debug.print("\nSending strings \n", .{});
-                try stream.writeAll(data);
-            },
-            else => {
-                std.debug.print("\nSending bytes \n", .{});
-                try stream.writeAll(std.mem.asBytes(&data));
-            },
-        }
-    }
-
-    pub fn map(self: Window, socket: std.net.Stream) !void {
-        try send(socket, MapWindowRequest{ .window = self.handle });
-    }
 };

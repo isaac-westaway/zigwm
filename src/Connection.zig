@@ -16,27 +16,8 @@ pub const XConnection = struct {
     setup: Structs.InitialSetup,
     status: Enums.Status,
 
-    pub fn send(self: *XConnection, data: anytype) !void {
-        const dataType = @TypeOf(data);
-
-        switch (dataType) {
-            []u8, []const u8 => {
-                std.debug.print("Sending strings \n", .{});
-                try self.stream.writeAll(data);
-            },
-            else => {
-                std.debug.print("Sending bytes \n", .{});
-                try self.stream.writeAll(std.mem.asBytes(&data));
-            },
-        }
-    }
-
-    pub fn recv(self: *XConnection, comptime T: type) !T {
-        return self.stream.reader().readStruct(T);
-    }
-
     // this is also magic
-    pub fn parseSetupType(wanted: anytype, buffer: []u8) usize {
+    fn parseSetupType(wanted: anytype, buffer: []u8) usize {
         std.debug.assert(@typeInfo(@TypeOf(wanted)) == .Pointer);
         var size: usize = 0;
 
@@ -53,7 +34,7 @@ pub const XConnection = struct {
         return size;
     }
 
-    pub fn parseSetup(self: *XConnection, allocator: *std.mem.Allocator, buffer: []u8) !void {
+    fn parseSetup(self: *XConnection, allocator: *std.mem.Allocator, buffer: []u8) !void {
 
         // nevermind, a status code of 1 is a success
         var initial_setup: Structs.FullSetup = undefined;
@@ -151,6 +132,25 @@ pub const XConnection = struct {
 
         self.formats = formats;
         self.screens = screens;
+    }
+
+    pub fn recv(self: *XConnection, comptime T: type) !T {
+        return self.stream.reader().readStruct(T);
+    }
+
+    pub fn send(self: *XConnection, data: anytype) !void {
+        const dataType = @TypeOf(data);
+
+        switch (dataType) {
+            []u8, []const u8 => {
+                std.debug.print("Sending strings \n", .{});
+                try self.stream.writeAll(data);
+            },
+            else => {
+                std.debug.print("Sending bytes \n", .{});
+                try self.stream.writeAll(std.mem.asBytes(&data));
+            },
+        }
     }
 
     pub fn initiateConnection(self: *XConnection, x_init: XInit, arena_allocator: *std.mem.Allocator) !void {

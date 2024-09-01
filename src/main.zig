@@ -3,12 +3,12 @@ const builtin = @import("builtin");
 const root = @import("root");
 
 const Structs = @import("structs.zig");
-const Window = @import("window.zig");
 const Atoms = @import("atoms.zig");
 
 const XInit = @import("Init.zig").XInit;
 const XConnection = @import("Connection.zig").XConnection;
 const XId = @import("Xid.zig").XId;
+const XWindow = @import("Window.zig").XWindow;
 
 pub fn main() !void {
     // for top level allocation
@@ -68,46 +68,47 @@ pub fn main() !void {
         try xid.init(x_connection);
     }
 
-    const window_xid: u32 = try xid.genXId(&x_connection);
-    _ = window_xid;
+    const root_window_xid: u32 = try xid.genXId(&x_connection);
+
+    var x_root_window: XWindow = XWindow{
+        .handle = root_window_xid,
+        .connection = x_connection,
+    };
+
     // access the connection root integer (it is the windowID) and use it to craete windows
 
-    // const options: Structs.CreateWindowOptions = comptime Structs.CreateWindowOptions{
-    //     .width = 800,
-    //     .height = 600,
-    // };
+    const options: Structs.CreateWindowOptions = comptime Structs.CreateWindowOptions{
+        .width = 800,
+        .height = 600,
+    };
 
-    // const mask: u32 = blk: {
-    //     var tmp: u32 = 0;
-    //     for (options.values) |val| tmp |= val.mask.toInt();
-    //     break :blk tmp;
-    // };
+    const mask: u32 = blk: {
+        var tmp: u32 = 0;
+        for (options.values) |val| tmp |= val.mask.toInt();
+        break :blk tmp;
+    };
     // // _ = mask;
 
-    // const window_request = Structs.CreateWindowRequest{
-    //     .length = @sizeOf(Structs.CreateWindowRequest) / 4 + @as(u16, options.values.len),
-    //     .wid = window_xid,
-    //     .parent = x_connection.screens[0].root,
-    //     .width = options.width,
-    //     .height = options.height,
-    //     .visual = x_connection.screens[0].root_visual,
-    //     .value_mask = mask,
-    //     .class = options.class.toInt(),
-    // };
+    const window_request = Structs.CreateWindowRequest{
+        .length = @sizeOf(Structs.CreateWindowRequest) / 4 + @as(u16, options.values.len),
+        .wid = x_root_window.handle,
+        .parent = x_connection.screens[0].root,
+        .width = options.width,
+        .height = options.height,
+        .visual = x_connection.screens[0].root_visual,
+        .value_mask = mask,
+        .class = options.class.toInt(),
+    };
 
-    // try Connection.send(socket, window_request);
-    // for (options.values) |val| {
-    //     try Connection.send(socket, val.value);
-    // }
+    try x_connection.send(window_request);
+    for (options.values) |val| {
+        try x_connection.send(val.value);
+    }
 
-    // const window = Structs.Window{
-    //     .handle = window_xid,
-    // };
+    std.debug.print("Window: {any}", .{x_root_window});
+    if (options.title) |title| {
+        try x_root_window.ChangeProperty(socket, .replace, Atoms.Atoms.wm_name, Atoms.Atoms.string, .{ .string = title });
+    }
 
-    // std.debug.print("Window: {any}", .{window});
-    // if (options.title) |title| {
-    //     try Window.ChangeProperty(window, socket, .replace, Atoms.Atoms.wm_name, Atoms.Atoms.string, .{ .string = title });
-    // }
-
-    // try window.map(socket);
+    try x_root_window.map();
 }
