@@ -28,7 +28,7 @@ pub const XId = struct {
         if (modifiable_xid.last >= temp) {
             if (modifiable_xid.last == 0) {
                 modifiable_xid.max = connection.setup.mask;
-                std.debug.print("Max if Zero: {any}\n", .{modifiable_xid.max});
+                // std.debug.print("Max if Zero: {any}\n", .{modifiable_xid.max});
             } else {
                 // ! extension handling
                 // ! for the purposes of this simple { :( } window manager do not bother
@@ -37,7 +37,7 @@ pub const XId = struct {
 
                 const reply = try connection.recv(Structs.IdRangeReply);
 
-                std.debug.print("Modifiable XID:{any}\n", .{modifiable_xid.inc});
+                // std.debug.print("Modifiable XID:{any}\n", .{modifiable_xid.inc});
 
                 modifiable_xid.last = reply.start_id;
                 modifiable_xid.max = reply.start_id + (reply.count - 1) * modifiable_xid.inc;
@@ -45,10 +45,6 @@ pub const XId = struct {
         } else {
             modifiable_xid.last += modifiable_xid.inc;
         }
-
-        // std.debug.print("{}", .{modifiable_xid});
-        std.debug.print("Last: {any}", .{modifiable_xid.last});
-        std.debug.print("Base: {any}", .{modifiable_xid.base});
 
         ret = modifiable_xid.last | modifiable_xid.base | modifiable_xid.max;
         return ret;

@@ -12,11 +12,15 @@ const XWindow = @import("Window.zig").XWindow;
 
 pub fn main() !void {
     // for top level allocation
+
+    std.log.scoped(.main).info("Initializing startup process", .{});
+
     var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
     defer std.debug.assert(general_purpose_allocator.deinit() == .ok);
     const allocator = general_purpose_allocator.allocator();
 
-    var socket: std.net.Stream = try std.net.connectUnixSocket("/tmp/.X11-unix/X1");
+    // startx :2 vt2 ~/Documents/zig/zigwm/zig-out/zigwm
+    var socket: std.net.Stream = try std.net.connectUnixSocket("/tmp/.X11-unix/X2");
     defer socket.close();
 
     const x_authority: std.fs.File = try std.fs.openFileAbsolute(std.posix.getenv("XAUTHORITY").?, .{});
@@ -25,23 +29,28 @@ pub fn main() !void {
     var hostname_buf: [std.posix.HOST_NAME_MAX]u8 = undefined;
     const hostname = try std.posix.gethostname(&hostname_buf);
 
+    // for child allocators
+    var heap_arena_allocator = std.heap.ArenaAllocator.init(allocator);
+    var arena_allocator = heap_arena_allocator.allocator();
+    defer heap_arena_allocator.deinit();
+
+    std.log.scoped(.main).info("Completed startup process initialization", .{});
+    std.log.scoped(.main_x_init).info("Beginning X Initialization process", .{});
+
     var x_init: XInit = XInit{
         .allocator = allocator,
         .auth_info = undefined,
     };
 
-    // for child allocators
-    var heap_arena_allocator = std.heap.ArenaAllocator.init(x_init.allocator);
-    var arena_allocator = heap_arena_allocator.allocator();
-    defer heap_arena_allocator.deinit();
-
+    std.log.scoped(.main_x_init).info("Trying x_init.init", .{});
     try x_init.init(x_authority, hostname, arena_allocator);
 
     // make sure authorisation uses mit magic cookies
-    std.debug.print("Info: {s}\n", .{x_init.auth_info.data});
     std.debug.assert(std.mem.eql(u8, x_init.auth_info.name, "MIT-MAGIC-COOKIE-1"));
+    std.log.scoped(.main_x_init).info("Successfully completed x_init initialization", .{});
 
-    // Initiate a connection to the XServer unix domain socket
+    std.log.scoped(.main_x_connection).info("Beginning x_connection initialization", .{});
+    // initiate a connection to the XServer unix domain socket
     var x_connection: XConnection = XConnection{
         .allocator = allocator,
         .stream = socket,
@@ -52,10 +61,14 @@ pub fn main() !void {
     };
 
     // Initiate a setup
+    std.log.scoped(.main_x_connection).info("Trying x_connection.initiateConnection", .{});
     try x_connection.initiateConnection(
         x_init,
         &arena_allocator,
     );
+    std.log.scoped(.main_x_connection).info("Successfully completed connection instantiation", .{});
+
+    // maybe there is a better way to do this, maybe this is the best most readable way
     var xid: XId = XId{
         .last = undefined,
         .max = undefined,
@@ -64,7 +77,7 @@ pub fn main() !void {
     };
 
     if (x_connection.status == .Ok) {} else {
-        std.debug.print("Error initializing XID", .{});
+        // std.debug.print("Error initializing XID", .{});
         try xid.init(x_connection);
     }
 
@@ -75,40 +88,16 @@ pub fn main() !void {
         .connection = x_connection,
     };
 
-    // access the connection root integer (it is the windowID) and use it to craete windows
+    try x_root_window.initializeRootWindow();
+    // event loop to prevent auto shutdown
 
-    const options: Structs.CreateWindowOptions = comptime Structs.CreateWindowOptions{
-        .width = 800,
-        .height = 600,
-    };
+    // const argv: []const []const u8 = &[_][]const u8{
+    //     // terminal
+    //     "kitty",
+    // };
 
-    const mask: u32 = blk: {
-        var tmp: u32 = 0;
-        for (options.values) |val| tmp |= val.mask.toInt();
-        break :blk tmp;
-    };
-    // // _ = mask;
+    // const echo = try std.process.Child.run(.{ .allocator = allocator, .argv = argv });
+    // _ = echo;
 
-    const window_request = Structs.CreateWindowRequest{
-        .length = @sizeOf(Structs.CreateWindowRequest) / 4 + @as(u16, options.values.len),
-        .wid = x_root_window.handle,
-        .parent = x_connection.screens[0].root,
-        .width = options.width,
-        .height = options.height,
-        .visual = x_connection.screens[0].root_visual,
-        .value_mask = mask,
-        .class = options.class.toInt(),
-    };
-
-    try x_connection.send(window_request);
-    for (options.values) |val| {
-        try x_connection.send(val.value);
-    }
-
-    std.debug.print("Window: {any}", .{x_root_window});
-    if (options.title) |title| {
-        try x_root_window.ChangeProperty(socket, .replace, Atoms.Atoms.wm_name, Atoms.Atoms.string, .{ .string = title });
-    }
-
-    try x_root_window.map();
+    while (true) {}
 }

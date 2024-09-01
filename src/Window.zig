@@ -15,7 +15,7 @@ pub const XWindow = struct {
     handle: u32,
     connection: XConnection,
 
-    pub fn ChangeProperty(
+    pub fn changeProperty(
         self: *XWindow,
         socket: std.net.Stream,
         mode: Enums.PropertyMode,
@@ -50,5 +50,44 @@ pub const XWindow = struct {
 
     pub fn map(self: *XWindow) !void {
         try self.connection.send(Structs.MapWindowRequest{ .window = self.handle });
+    }
+
+    pub fn initializeRootWindow(self: *XWindow) !void {
+
+        // access the connection root integer (it is the windowID) and use it to craete windows
+        const options: Structs.CreateWindowOptions = comptime Structs.CreateWindowOptions{
+            .width = 750,
+            .height = 600,
+        };
+
+        const mask: u32 = blk: {
+            var tmp: u32 = 0;
+            for (options.values) |val| tmp |= val.mask.toInt();
+            break :blk tmp;
+        };
+        // // _ = mask;
+
+        const window_request = Structs.CreateWindowRequest{
+            .length = @sizeOf(Structs.CreateWindowRequest) / 4 + @as(u16, options.values.len),
+            .wid = self.handle,
+            .parent = self.connection.screens[0].root,
+            .width = options.width,
+            .height = options.height,
+            .visual = self.connection.screens[0].root_visual,
+            .value_mask = mask,
+            .class = options.class.toInt(),
+        };
+
+        try self.connection.send(window_request);
+        for (options.values) |val| {
+            try self.connection.send(val.value);
+        }
+
+        // std.debug.print("Window: {any}", .{self});
+        if (options.title) |title| {
+            try changeProperty(self.connection.stream, .replace, Atoms.Atoms.wm_name, Atoms.Atoms.string, .{ .string = title });
+        }
+
+        try self.map();
     }
 };

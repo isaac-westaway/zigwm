@@ -48,21 +48,28 @@ pub const XInit = struct {
 
     pub fn init(self: *XInit, x_authority: std.fs.File, hostname: []u8, arena_allocator: std.mem.Allocator) !void {
         // pass in arean allocator as an argument
+        std.log.scoped(.XInit_init).info("Beginning XInit initalization", .{});
 
         while (true) {
             const x_auth: AuthInfo = try XInit.deserialize(XInit.AuthInfo, @constCast(&arena_allocator), x_authority);
 
             if (std.mem.eql(u8, x_auth.address, hostname) and std.mem.eql(u8, "MIT-MAGIC-COOKIE-1", x_auth.name)) {
-                std.debug.print("Good\n", .{});
+                std.log.scoped(.XInit_init_while).info("Successfully found authentication address and matched authentication encoding", .{});
 
                 self.auth_info = x_auth;
 
                 break;
             } else {
+                std.log.scoped(.XInit_init_while).err("Unable to verify authenication encoding", .{});
+
                 XInit.deallocateAllStrings(@constCast(&self.allocator), x_auth);
             }
         }
 
-        std.debug.print("Done\n", .{});
+        std.log.scoped(.XInit_init).info("Completed initialization", .{});
+        std.log.scoped(.XInit_init_auth_info).info("AuthInfo.address: {s}", .{self.auth_info.address});
+        std.log.scoped(.XInit_init_auth_info).info("AuthInfo.address: {s}", .{self.auth_info.number});
+        std.log.scoped(.XInit_init_auth_info).info("AuthInfo.address: {s}", .{self.auth_info.name});
+        std.log.scoped(.XInit_init_auth_info).info("AuthInfo.address: {s}", .{self.auth_info.data});
     }
 };
