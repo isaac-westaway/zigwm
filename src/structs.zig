@@ -5,15 +5,6 @@ const XType = @import("types.zig");
 const Enums = @import("enums.zig");
 
 /// basic Structs
-pub const AuthInfo = struct {
-    // endiannes
-    family: u16 = undefined,
-    address: []const u8 = undefined,
-    number: []const u8 = undefined,
-    name: []const u8 = undefined,
-    data: []const u8 = undefined,
-};
-
 pub const ValueMask = struct {
     mask: Enums.WindowAttributes,
     value: u32,
@@ -179,24 +170,6 @@ pub const XConnection = struct {
 
     pub fn read(self: *XConnection, buffer: []u8) std.fs.File.ReadError!usize {
         return std.posix.read(self.stream.handle, buffer);
-    }
-};
-
-pub const XId = struct {
-    last: u32,
-    max: u32,
-    base: u32,
-    inc: u32,
-
-    pub fn init(connection: XConnection) XId {
-        // we could use @setRuntimeSafety(false) in this case
-        const inc: u32 = connection.setup.mask & ~connection.setup.mask;
-        return XId{
-            .last = 0,
-            .max = 0,
-            .base = connection.setup.base,
-            .inc = @as(u32, inc),
-        };
     }
 };
 

@@ -2,10 +2,13 @@ const std = @import("std");
 const builtin = @import("builtin");
 const root = @import("root");
 
-const Connection = @import("connection.zig");
 const Structs = @import("structs.zig");
 const Window = @import("window.zig");
 const Atoms = @import("atoms.zig");
+
+const XInit = @import("Init.zig").XInit;
+const XConnection = @import("Connection.zig").XConnection;
+const XId = @import("Xid.zig").XId;
 
 pub fn main() !void {
     // for top level allocation
@@ -22,115 +25,89 @@ pub fn main() !void {
     var hostname_buf: [std.posix.HOST_NAME_MAX]u8 = undefined;
     const hostname = try std.posix.gethostname(&hostname_buf);
 
-    // for child allocators inside functions
-    var heap_arena_allocator = std.heap.ArenaAllocator.init(allocator);
+    var x_init: XInit = XInit{
+        .allocator = allocator,
+        .auth_info = undefined,
+    };
+
+    // for child allocators
+    var heap_arena_allocator = std.heap.ArenaAllocator.init(x_init.allocator);
     var arena_allocator = heap_arena_allocator.allocator();
     defer heap_arena_allocator.deinit();
 
-    const auth_info = while (true) {
-        const auth_info = try Connection.deserialize(Structs.AuthInfo, @constCast(&arena_allocator), x_authority);
-
-        // ! more cookie encoding types handled here
-        if (std.mem.eql(u8, auth_info.address, hostname) and std.mem.eql(u8, "MIT-MAGIC-COOKIE-1", auth_info.name)) {
-            std.debug.print("Good\n", .{});
-
-            break auth_info;
-        } else {
-            Connection.deallocateAllStrings(@constCast(&allocator), auth_info);
-        }
-    };
+    try x_init.init(x_authority, hostname, arena_allocator);
 
     // make sure authorisation uses mit magic cookies
-    std.debug.print("Info: {s}\n", .{auth_info.name});
-    std.debug.assert(std.mem.eql(u8, auth_info.name, "MIT-MAGIC-COOKIE-1"));
+    std.debug.print("Info: {s}\n", .{x_init.auth_info.data});
+    std.debug.assert(std.mem.eql(u8, x_init.auth_info.name, "MIT-MAGIC-COOKIE-1"));
 
-    // Initiate a setup
-    const pad = [3]u8{ 0, 0, 0 };
-    try Connection.send(socket, Structs.SetupRequest{
-        .name_len = @intCast(auth_info.name.len),
-        .data_len = @intCast(auth_info.data.len),
-    });
-    try Connection.send(socket, auth_info.name);
-    try Connection.send(socket, pad[0..Connection.xpad(auth_info.name.len)]);
-    try Connection.send(socket, auth_info.data);
-    try Connection.send(socket, pad[0..Connection.xpad(auth_info.data.len)]);
-
-    // Read the setup response
-    var connection: Structs.XConnection = Structs.XConnection{
+    // Initiate a connection to the XServer unix domain socket
+    var x_connection: XConnection = XConnection{
+        .allocator = allocator,
         .stream = socket,
         .formats = undefined,
         .screens = undefined,
-        .status = undefined,
         .setup = undefined,
+        .status = undefined,
     };
-    var xid: Structs.XId = undefined;
 
-    const stream = connection.reader();
+    // Initiate a setup
+    try x_connection.initiateConnection(
+        x_init,
+        &arena_allocator,
+    );
+    var xid: XId = XId{
+        .last = undefined,
+        .max = undefined,
+        .base = undefined,
+        .inc = undefined,
+    };
 
-    const header: Structs.SetupGeneric = try stream.readStruct(Structs.SetupGeneric);
-
-    const setup_buffer: []u8 = try allocator.alloc(u8, header.length * 4);
-    defer allocator.free(setup_buffer);
-
-    try stream.readNoEof(setup_buffer);
-
-    // assert a success, otherwise there is a system error
-    std.debug.print("Header Status: {}\n", .{header.status});
-    if (header.status == 1) {
-        connection.status = .Ok;
-        xid = Structs.XId.init(connection);
-    } else if (header.status == 0) {
-        // warning means authentication error. should implement logic to fix this by sending Xauthority
-        // contents to the XServer unix domain socket for authentication
-        connection.status = .Warning;
-    } else {
-        connection.status = .Error;
+    if (x_connection.status == .Ok) {} else {
+        std.debug.print("Error initializing XID", .{});
+        try xid.init(x_connection);
     }
 
-    try Connection.parseSetup(@constCast(&arena_allocator), &connection, setup_buffer);
-
-    // std.debug.print("{any}\n", .{connection});
-
-    const window_xid: u32 = try Connection.genXId(&connection, socket, xid);
-    // _ = window_xid;
+    const window_xid: u32 = try xid.genXId(&x_connection);
+    _ = window_xid;
     // access the connection root integer (it is the windowID) and use it to craete windows
 
-    const options: Structs.CreateWindowOptions = comptime Structs.CreateWindowOptions{
-        .width = 800,
-        .height = 600,
-    };
+    // const options: Structs.CreateWindowOptions = comptime Structs.CreateWindowOptions{
+    //     .width = 800,
+    //     .height = 600,
+    // };
 
-    const mask: u32 = blk: {
-        var tmp: u32 = 0;
-        for (options.values) |val| tmp |= val.mask.toInt();
-        break :blk tmp;
-    };
-    // _ = mask;
+    // const mask: u32 = blk: {
+    //     var tmp: u32 = 0;
+    //     for (options.values) |val| tmp |= val.mask.toInt();
+    //     break :blk tmp;
+    // };
+    // // _ = mask;
 
-    const window_request = Structs.CreateWindowRequest{
-        .length = @sizeOf(Structs.CreateWindowRequest) / 4 + @as(u16, options.values.len),
-        .wid = window_xid,
-        .parent = connection.screens[0].root,
-        .width = options.width,
-        .height = options.height,
-        .visual = connection.screens[0].root_visual,
-        .value_mask = mask,
-        .class = options.class.toInt(),
-    };
+    // const window_request = Structs.CreateWindowRequest{
+    //     .length = @sizeOf(Structs.CreateWindowRequest) / 4 + @as(u16, options.values.len),
+    //     .wid = window_xid,
+    //     .parent = x_connection.screens[0].root,
+    //     .width = options.width,
+    //     .height = options.height,
+    //     .visual = x_connection.screens[0].root_visual,
+    //     .value_mask = mask,
+    //     .class = options.class.toInt(),
+    // };
 
-    try Connection.send(socket, window_request);
-    for (options.values) |val| {
-        try Connection.send(socket, val.value);
-    }
+    // try Connection.send(socket, window_request);
+    // for (options.values) |val| {
+    //     try Connection.send(socket, val.value);
+    // }
 
-    const window = Structs.Window{
-        .handle = window_xid,
-    };
+    // const window = Structs.Window{
+    //     .handle = window_xid,
+    // };
 
-    std.debug.print("Window: {any}", .{window});
-    if (options.title) |title| {
-        try Window.ChangeProperty(window, socket, .replace, Atoms.Atoms.wm_name, Atoms.Atoms.string, .{ .string = title });
-    }
+    // std.debug.print("Window: {any}", .{window});
+    // if (options.title) |title| {
+    //     try Window.ChangeProperty(window, socket, .replace, Atoms.Atoms.wm_name, Atoms.Atoms.string, .{ .string = title });
+    // }
 
-    try window.map(socket);
+    // try window.map(socket);
 }
