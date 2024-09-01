@@ -20,7 +20,7 @@ pub fn main() !void {
     const allocator = general_purpose_allocator.allocator();
 
     // startx :2 vt2 ~/Documents/zig/zigwm/zig-out/zigwm
-    var socket: std.net.Stream = try std.net.connectUnixSocket("/tmp/.X11-unix/X1");
+    var socket: std.net.Stream = try std.net.connectUnixSocket("/tmp/.X11-unix/X0");
     defer socket.close();
 
     const x_authority: std.fs.File = try std.fs.openFileAbsolute(std.posix.getenv("XAUTHORITY").?, .{});

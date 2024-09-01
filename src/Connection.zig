@@ -183,7 +183,7 @@ pub const XConnection = struct {
         const header: Structs.SetupGeneric = try stream.readStruct(Structs.SetupGeneric);
         std.log.scoped(.XConnection_initiateConnection).info("Header Status Early: {}", .{header.status});
 
-        // ! TODO: fix the array out of bounds error. the buffer has been allocated
+        // ! TODO: fix the array out of bounds error. the buffer has been allocated // done
         // ! more than enough memory as a simple workaround
 
         std.log.scoped(.XConnection_initiateConnection).info("Trying to load the response into setup_buffer", .{});
