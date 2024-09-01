@@ -194,7 +194,6 @@ pub const XConnection = struct {
         // ! error here
         try stream.readNoEof(setup_buffer);
 
-        // ! the program does not make it here, it terminates at the readNoEof
         std.log.scoped(.XConnection_initiateConnection).info("Completed stream reading", .{});
 
         std.log.scoped(.XConnection_initiateConnection).info("Recieved XServer response for the setup", .{});
