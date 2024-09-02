@@ -107,7 +107,8 @@ pub fn main() !void {
 
     std.debug.print("Completed Successfully, starting event loop!\n", .{});
 
-    // ! this no longer works because the real window managing logic has been implemented
+    // ! this no longer works because the real window managing logic is yet to be implemented
+    // ! the reason this worked before is becose calling this would write it directly to the root window, which is useless.
     const argv: []const []const u8 = &[_][]const u8{
         "kitty",
     };
