@@ -2,14 +2,14 @@ const std = @import("std");
 const builtin = @import("builtin");
 const root = @import("root");
 
-const Structs = @import("structs.zig");
-const Enums = @import("enums.zig");
-const XTypes = @import("types.zig");
-const Atoms = @import("atoms.zig");
+const Structs = @import("x11/structs.zig");
+const Enums = @import("x11/enums.zig");
+const XTypes = @import("x11/types.zig");
+const Atoms = @import("x11/atoms.zig");
+const Utils = @import("x11/utils.zig");
 
 const XConnection = @import("Connection.zig").XConnection;
 const XInit = @import("Init.zig").XInit;
-const Utils = @import("utils.zig");
 
 pub const XWindow = struct {
     handle: u32,
@@ -48,6 +48,17 @@ pub const XWindow = struct {
         try self.connection.send(request.pad0[0..Utils.xpad(data.len())]) catch std.debug.print("error", .{});
     }
 
+    pub fn changeAttributes(self: *XWindow, values: []const Structs.ValueMask) !void {
+        const mask: u32 = blk: {
+            var tmp: u32 = 0;
+            for (values) |val| tmp |= val.mask.toInt();
+            break :blk tmp;
+        };
+
+        try self.connection.send(Structs.ChangeWindowAttributes{ .length = @sizeOf(Structs.ChangeWindowAttributes) / 4 + @as(u16, @intCast(values.len)), .window = self.handle, .mask = mask });
+        for (values) |val| try self.connection.send(val.value);
+    }
+
     pub fn map(self: *XWindow) !void {
         try self.connection.send(Structs.MapWindowRequest{ .window = self.handle });
     }
@@ -65,7 +76,6 @@ pub const XWindow = struct {
             for (options.values) |val| tmp |= val.mask.toInt();
             break :blk tmp;
         };
-        // // _ = mask;
 
         const window_request = Structs.CreateWindowRequest{
             .length = @sizeOf(Structs.CreateWindowRequest) / 4 + @as(u16, options.values.len),
@@ -82,6 +92,8 @@ pub const XWindow = struct {
         for (options.values) |val| {
             try self.connection.send(val.value);
         }
+
+        std.debug.print("Options: {any}\n", .{options.title});
 
         // std.debug.print("Window: {any}", .{self});
         if (options.title) |title| {

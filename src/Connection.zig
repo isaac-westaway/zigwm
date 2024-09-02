@@ -2,11 +2,11 @@ const std = @import("std");
 const builtin = @import("builtin");
 const root = @import("root");
 
-const Structs = @import("structs.zig");
-const Enums = @import("enums.zig");
+const Structs = @import("x11/structs.zig");
+const Enums = @import("x11/enums.zig");
+const Utils = @import("x11/utils.zig");
 
 const XInit = @import("Init.zig").XInit;
-const Utils = @import("utils.zig");
 
 pub const XConnection = struct {
     allocator: std.mem.Allocator,

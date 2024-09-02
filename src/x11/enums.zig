@@ -18,7 +18,7 @@ pub const WindowAttributes = enum(u32) {
     cursor = 16348,
 
     pub fn toInt(self: WindowAttributes) u32 {
-        return std.enums.directEnumArray(self);
+        return @intFromEnum(self);
     }
 };
 

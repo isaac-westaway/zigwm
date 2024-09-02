@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const Utils = @import("utils.zig");
+const Utils = @import("x11/utils.zig");
 
 pub const XInit = struct {
     auth_info: AuthInfo,

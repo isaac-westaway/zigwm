@@ -1,9 +1,13 @@
+//! The entry point for the Zig Window Manager
+
 const std = @import("std");
 const builtin = @import("builtin");
 const root = @import("root");
 
-const Structs = @import("structs.zig");
-const Atoms = @import("atoms.zig");
+// ideally, I want to get rid of these two import statements
+const Structs = @import("x11/structs.zig");
+const Atoms = @import("x11/atoms.zig");
+const Events = @import("x11/events.zig");
 
 const XInit = @import("Init.zig").XInit;
 const XConnection = @import("Connection.zig").XConnection;
@@ -50,7 +54,8 @@ pub fn main() !void {
     std.log.scoped(.main_x_init).info("Successfully completed x_init initialization", .{});
 
     std.log.scoped(.main_x_connection).info("Beginning x_connection initialization", .{});
-    // initiate a connection to the XServer unix domain socket
+
+    // ! The Window Manager is inserted here `XConnection`
     var x_connection: XConnection = XConnection{
         .allocator = allocator,
         .stream = socket,
@@ -77,22 +82,32 @@ pub fn main() !void {
     };
 
     if (x_connection.status == .Ok) {} else {
-        // std.debug.print("Error initializing XID", .{});
         try xid.init(x_connection);
     }
 
-    const root_window_xid: u32 = try xid.genXId(&x_connection);
-
     var x_root_window: XWindow = XWindow{
-        .handle = root_window_xid,
+        .handle = x_connection.screens[0].root,
         .connection = x_connection,
     };
 
     try x_root_window.initializeRootWindow();
-    // event loop to prevent auto shutdown
+
+    const root_event_mask = Events.Mask{
+        .substructure_redirect = true,
+        .substructure_notify = true,
+        .structure_notify = true,
+        .property_change = true,
+    };
+
+    // Change the attributes of the root window for compliance
+    try x_root_window.changeAttributes(&[_]Structs.ValueMask{.{
+        .mask = .event_mask,
+        .value = root_event_mask.toInt(),
+    }});
+
+    std.debug.print("Completed Successfully, starting event loop!\n", .{});
 
     const argv: []const []const u8 = &[_][]const u8{
-        // terminal
         "kitty",
     };
 

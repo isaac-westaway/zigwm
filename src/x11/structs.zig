@@ -29,6 +29,14 @@ pub const SetupRequest = extern struct {
     pad1: [2]u8 = [_]u8{ 0, 0 },
 };
 
+pub const ChangeWindowAttributes = extern struct {
+    major_opcode: u8 = 2,
+    pad0: u8 = 0,
+    length: u16,
+    window: XType.Types.Window,
+    mask: u32,
+};
+
 pub const SetupGeneric = extern struct {
     status: u8,
     pad0: [5]u8,

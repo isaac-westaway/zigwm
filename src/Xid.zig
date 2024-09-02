@@ -2,7 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const root = @import("root");
 
-const Structs = @import("structs.zig");
+const Structs = @import("x11/structs.zig");
 
 const XConnection = @import("Connection.zig").XConnection;
 
@@ -46,7 +46,7 @@ pub const XId = struct {
             modifiable_xid.last += modifiable_xid.inc;
         }
 
-        ret = modifiable_xid.last | modifiable_xid.base | modifiable_xid.max;
+        ret = modifiable_xid.last | modifiable_xid.base;
         return ret;
     }
 
