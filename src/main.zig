@@ -107,12 +107,13 @@ pub fn main() !void {
 
     std.debug.print("Completed Successfully, starting event loop!\n", .{});
 
+    // ! this no longer works because the real window managing logic has been implemented
     const argv: []const []const u8 = &[_][]const u8{
         "kitty",
     };
-
     const echo = try std.process.Child.run(.{ .allocator = allocator, .argv = argv });
     _ = echo;
+    // !
 
     while (true) {}
 }
