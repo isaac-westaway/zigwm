@@ -4,7 +4,6 @@ const std = @import("std");
 const builtin = @import("builtin");
 const root = @import("root");
 
-// ideally, I want to get rid of these two import statements
 const ZWM = @import("ZWM.zig").ZWM;
 
 pub fn main() !void {
