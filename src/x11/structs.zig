@@ -10,6 +10,15 @@ pub const ValueMask = struct {
     value: u32,
 };
 
+pub const AuthInfo = struct {
+    // endiannes
+    family: u16 = undefined,
+    address: []const u8 = undefined,
+    number: []const u8 = undefined,
+    name: []const u8 = undefined,
+    data: []const u8 = undefined,
+};
+
 pub const CreateWindowOptions = struct {
     width: u16,
     height: u16,

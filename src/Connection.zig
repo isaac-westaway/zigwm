@@ -16,6 +16,8 @@ pub const XConnection = struct {
     setup: Structs.InitialSetup,
     status: Enums.Status,
 
+    // ? Entering manager
+
     // this is also magic
     fn parseSetupType(wanted: anytype, buffer: []u8) usize {
         std.debug.assert(@typeInfo(@TypeOf(wanted)) == .Pointer);
@@ -161,21 +163,21 @@ pub const XConnection = struct {
 
         std.log.scoped(.XConnection_initiateConnection).info("Sending name.len and data.len", .{});
         try self.send(Structs.SetupRequest{
-            .name_len = @intCast(x_init.auth_info.name.len),
-            .data_len = @intCast(x_init.auth_info.data.len),
+            .name_len = @intCast(x_init.x_auth_info.name.len),
+            .data_len = @intCast(x_init.x_auth_info.data.len),
         });
 
         std.log.scoped(.XConnection_initiateConnection).info("Sending name", .{});
-        try self.send(x_init.auth_info.name);
+        try self.send(x_init.x_auth_info.name);
 
         std.log.scoped(.XConnection_initiateConnection).info("Sending name.len", .{});
-        try self.send(pad[0..Utils.xpad(x_init.auth_info.name.len)]);
+        try self.send(pad[0..Utils.xpad(x_init.x_auth_info.name.len)]);
 
         std.log.scoped(.XConnection_initiateConnection).info("Sending data", .{});
-        try self.send(x_init.auth_info.data);
+        try self.send(x_init.x_auth_info.data);
 
         std.log.scoped(.XConnection_initiateConnection).info("Sending data.len", .{});
-        try self.send(pad[0..Utils.xpad(x_init.auth_info.data.len)]);
+        try self.send(pad[0..Utils.xpad(x_init.x_auth_info.data.len)]);
 
         const stream = self.stream.reader();
 

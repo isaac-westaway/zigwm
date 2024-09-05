@@ -1,20 +1,13 @@
 const std = @import("std");
 
 const Utils = @import("x11/utils.zig");
+const Structs = @import("x11/structs.zig");
 
 pub const XInit = struct {
-    auth_info: AuthInfo,
-
     allocator: std.mem.Allocator,
 
-    pub const AuthInfo = struct {
-        // endiannes
-        family: u16 = undefined,
-        address: []const u8 = undefined,
-        number: []const u8 = undefined,
-        name: []const u8 = undefined,
-        data: []const u8 = undefined,
-    };
+    x_authority: std.fs.File,
+    x_auth_info: Structs.AuthInfo,
 
     fn deallocateAllStrings(allocator: *std.mem.Allocator, Struct: anytype) void {
         inline for (comptime @typeInfo(@TypeOf(Struct)).Struct.fields) |field| {
@@ -51,12 +44,12 @@ pub const XInit = struct {
         std.log.scoped(.XInit_init).info("Beginning XInit initalization", .{});
 
         while (true) {
-            const x_auth: AuthInfo = try XInit.deserialize(XInit.AuthInfo, @constCast(&arena_allocator), x_authority);
+            const x_auth: Structs.AuthInfo = try XInit.deserialize(Structs.AuthInfo, @constCast(&arena_allocator), x_authority);
 
             if (std.mem.eql(u8, x_auth.address, hostname) and std.mem.eql(u8, "MIT-MAGIC-COOKIE-1", x_auth.name)) {
                 std.log.scoped(.XInit_init_while).info("Successfully found authentication address and matched authentication encoding", .{});
 
-                self.auth_info = x_auth;
+                self.x_auth_info = x_auth;
 
                 break;
             } else {
@@ -67,9 +60,9 @@ pub const XInit = struct {
         }
 
         std.log.scoped(.XInit_init).info("Completed initialization", .{});
-        std.log.scoped(.XInit_init_auth_info).info("AuthInfo.address: {s}", .{self.auth_info.address});
-        std.log.scoped(.XInit_init_auth_info).info("AuthInfo.address: {s}", .{self.auth_info.number});
-        std.log.scoped(.XInit_init_auth_info).info("AuthInfo.address: {s}", .{self.auth_info.name});
-        std.log.scoped(.XInit_init_auth_info).info("AuthInfo.address: {s}", .{self.auth_info.data});
+        std.log.scoped(.XInit_init_auth_info).info("AuthInfo.address: {s}", .{self.x_auth_info.address});
+        std.log.scoped(.XInit_init_auth_info).info("AuthInfo.address: {s}", .{self.x_auth_info.number});
+        std.log.scoped(.XInit_init_auth_info).info("AuthInfo.address: {s}", .{self.x_auth_info.name});
+        std.log.scoped(.XInit_init_auth_info).info("AuthInfo.address: {s}", .{self.x_auth_info.data});
     }
 };
