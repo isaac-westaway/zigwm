@@ -1,13 +1,41 @@
+const builtin = @import("builtin");
+
 const XTypes = @import("types.zig");
 const Structs = @import("structs.zig");
 
 // ! this sucks and needs to be done better
 const XConnection = @import("../Connection.zig").XConnection;
+const XWindow = @import("../Window.zig").XWindow;
 
 // bandaid, usingnamespace
 const keys = @import("keys.zig");
 
 // most of this is just copied and pasted from @juicebox window manager.
+
+pub const Modifiers = packed struct {
+    shift: bool = false,
+    lock: bool = false,
+    control: bool = false,
+    mod1: bool = false,
+    mod2: bool = false,
+    mod3: bool = false,
+    mod4: bool = false,
+    mod5: bool = false,
+    but1: bool = false,
+    but2: bool = false,
+    but3: bool = false,
+    but4: bool = false,
+    but5: bool = false,
+
+    padding: u2 = 0,
+    any_bit: bool = false,
+
+    pub const any: @This() = .{ .any_bit = true };
+
+    pub fn toInt(self: @This()) u16 {
+        return @bitCast(self);
+    }
+};
 
 pub const KeysymTable = struct {
     list: []XTypes.Types.Keysym,
@@ -27,9 +55,9 @@ pub const KeysymTable = struct {
 
         const reply = try con.recv(Structs.KeyboardMappingReply);
 
-        const keysyms = try con.gpa.alloc(XTypes.Types.Keysym, reply.length);
+        const keysyms = try con.allocator.alloc(XTypes.Types.Keysym, reply.length);
         for (keysyms) |*keysym| {
-            keysym.* = try con.reader().readIntNative(XTypes.Types.Keysym);
+            keysym.* = try con.stream.reader().readInt(XTypes.Types.Keysym, builtin.target.cpu.arch.endian());
         }
 
         return KeysymTable{
@@ -93,6 +121,14 @@ pub const KeysymTable = struct {
         alloc.free(self.list);
     }
 };
+
+pub fn ungrabKey(conn: *XConnection, key: XTypes.Types.Keycode, window: XWindow, modifiers: Modifiers) !void {
+    try conn.send(Structs.UngrabKeyRequest{
+        .key = key,
+        .window = window.handle,
+        .modifiers = modifiers.toInt(),
+    });
+}
 
 fn convertCase(keysym: XTypes.Types.Keysym, lower: *XTypes.Types.Keysym, upper: *XTypes.Types.Keysym) void {
     if (keysym < 0x100) return ucsConvertCase(keysym, lower, upper);

@@ -46,6 +46,14 @@ pub const ChangeWindowAttributes = extern struct {
     mask: u32,
 };
 
+pub const UngrabKeyRequest = extern struct {
+    major_opcode: u8 = 34,
+    key: XType.Types.Keycode,
+    length: u16 = @sizeOf(UngrabKeyRequest) / 4, // 3
+    window: XType.Types.Window,
+    modifiers: u16,
+};
+
 pub const SetupGeneric = extern struct {
     status: u8,
     pad0: [5]u8,
@@ -75,6 +83,23 @@ pub const FullSetup = extern struct {
     min_keycode: XType.Types.Keycode,
     max_keycode: XType.Types.Keycode,
     pad1: [4]u8,
+};
+
+pub const KeyboardMappingRequest = extern struct {
+    major_opcode: u8 = 101,
+    pad: u8 = 0,
+    length: u16 = @sizeOf(KeyboardMappingRequest) / 4,
+    first_keycode: XType.Types.Keycode,
+    count: u8,
+    pad1: [2]u8 = [_]u8{ 0, 0 },
+};
+
+pub const KeyboardMappingReply = extern struct {
+    response_type: u8,
+    keysyms_per_keycode: u8,
+    sequence: u16,
+    length: u32,
+    pad: [24]u8,
 };
 
 pub const Format = extern struct {

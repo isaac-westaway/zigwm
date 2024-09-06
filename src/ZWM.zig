@@ -17,12 +17,13 @@ const XId = @import("Xid.zig").XId;
 const XWindow = @import("Window.zig").XWindow;
 
 pub const ZWM = struct {
-    // X Stuff
+    /// X Stuff
     x_init: XInit,
     x_connection: XConnection,
     x_root_window: XWindow,
 
-    // ZWM handlers
+    /// ZWM handlers
+    /// The currently active screen
     screen: Structs.Screen,
     keysym_table: Input.KeysymTable,
     root_event_mask: Events.Mask,
@@ -69,17 +70,17 @@ pub const ZWM = struct {
         var hostname_buf: [std.posix.HOST_NAME_MAX]u8 = undefined;
         const hostname = try std.posix.gethostname(&hostname_buf);
 
-        std.log.scoped(.main).info("Completed startup process initialization", .{});
-        std.log.scoped(.main_x_init).info("Beginning X Initialization process", .{});
+        std.log.scoped(.zwm).info("Completed startup process initialization", .{});
+        std.log.scoped(.zwm).info("Beginning X Initialization process", .{});
 
         try zwm.x_init.init(zwm.x_init.x_authority, hostname, arena_allocator);
 
-        std.log.scoped(.main_x_connection).info("Trying x_connection.initiateConnection", .{});
+        std.log.scoped(.zwm).info("Trying x_connection.initiateConnection", .{});
         try zwm.x_connection.initiateConnection(
             zwm.x_init,
             @constCast(&arena_allocator),
         );
-        std.log.scoped(.main_x_connection).info("Successfully completed connection instantiation", .{});
+        std.log.scoped(.zwm).info("Successfully completed connection instantiation", .{});
 
         var xid: XId = XId{
             .last = undefined,
@@ -91,6 +92,8 @@ pub const ZWM = struct {
         if (zwm.x_connection.status == .Ok) {} else {
             try xid.init(zwm.x_connection);
         }
+
+        zwm.screen = zwm.x_connection.screens[0];
 
         zwm.x_root_window = XWindow{
             .handle = zwm.x_connection.screens[0].root,
@@ -105,11 +108,23 @@ pub const ZWM = struct {
             .value = zwm.root_event_mask.toInt(),
         }});
 
+        try zwm.grabKeys();
+
+        std.log.scoped(.zwm).info("Completed Initialization, returning", .{});
+
         return zwm;
     }
 
     pub fn close(self: *ZWM) !void {
         self.x_connection.stream.close();
         self.x_init.x_authority.close();
+    }
+
+    pub fn grabKeys(self: *ZWM) !void {
+        try Input.ungrabKey(&self.x_connection, 0, self.x_root_window, Input.Modifiers.any);
+
+        self.keysym_table = try Input.KeysymTable.init(&self.x_connection);
+
+        // do config
     }
 };

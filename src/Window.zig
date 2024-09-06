@@ -93,8 +93,6 @@ pub const XWindow = struct {
             try self.connection.send(val.value);
         }
 
-        std.debug.print("Options: {any}\n", .{options.title});
-
         // std.debug.print("Window: {any}", .{self});
         if (options.title) |title| {
             try changeProperty(self.connection.stream, .replace, Atoms.Atoms.wm_name, Atoms.Atoms.string, .{ .string = title });

@@ -5,4 +5,4 @@ todo:
 
 most of the stuff in src/x11 has been copied directly from the Xorg manual (R7.7)
 
-and the older implentation of this.
+and the juicebox implementation of a window manager, a lot of inspiration came from there, though the code is (relatively) old so this is an updated version
