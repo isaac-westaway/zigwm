@@ -40,6 +40,7 @@ pub const Modifiers = packed struct {
 };
 
 pub const KeysymTable = struct {
+    // list is an slice of 32 bit chars
     list: []XTypes.Types.Keysym,
     keysyms_per_keycode: u8,
     min_keycode: u8,
@@ -57,7 +58,7 @@ pub const KeysymTable = struct {
 
         const reply = try con.recv(Structs.KeyboardMappingReply);
 
-        const keysyms = try con.allocator.alloc(XTypes.Types.Keysym, reply.length);
+        const keysyms = try con.allocator.alloc(XTypes.Types.Keysym, reply.length * 2);
         for (keysyms) |*keysym| {
             keysym.* = try con.stream.reader().readInt(XTypes.Types.Keysym, builtin.target.cpu.arch.endian());
         }
