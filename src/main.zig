@@ -18,17 +18,9 @@ pub fn main() !void {
 
     std.log.scoped(.main).info("Initializing startup process", .{});
 
-    const zwm = try ZWM.init(@constCast(&allocator), arena_allocator);
-    defer zwm.close();
+    const zwm: ZWM = try ZWM.init(@constCast(&allocator), arena_allocator);
+    defer zwm.close() catch {};
 
-    // ! this no longer works because the real window managing logic is yet to be implemented
-    // ! the reason this worked before is becose calling this would write it directly to the root window, which is useless.
-    // const argv: []const []const u8 = &[_][]const u8{
-    //     "kitty",
-    // };
-    // const echo = try std.process.Child.run(.{ .allocator = allocator, .argv = argv });
-    // _ = echo;
-    // !
-
-    while (true) {}
+    std.debug.print("", .{});
+    try zwm.run();
 }

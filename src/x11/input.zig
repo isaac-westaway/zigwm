@@ -1,7 +1,9 @@
+const std = @import("std");
 const builtin = @import("builtin");
 
 const XTypes = @import("types.zig");
 const Structs = @import("structs.zig");
+const Enums = @import("enums.zig");
 
 // ! this sucks and needs to be done better
 const XConnection = @import("../Connection.zig").XConnection;
@@ -122,6 +124,33 @@ pub const KeysymTable = struct {
     }
 };
 
+pub const GrabKeyOptions = struct {
+    /// Is owner of events
+    owner_events: bool = false,
+    /// Window that will recieve events for those keys
+    grab_window: XWindow,
+    /// Which modifier keys to be used
+    modifiers: Modifiers,
+    /// The actual key to grab
+    key_code: XTypes.Types.Keycode,
+    /// How the pointer events are triggered
+    pointer_mode: Enums.GrabMode = .@"async",
+    /// How the keyboard events are triggered
+    keyboard_mode: Enums.GrabMode = .@"async",
+};
+
+/// Grabs a key with optional modifiers for the given window
+pub fn grabKey(conn: *XConnection, options: GrabKeyOptions) !void {
+    try conn.send(Structs.GrabKeyRequest{
+        .owner_events = @intFromBool(options.owner_events),
+        .grab_window = options.grab_window.handle,
+        .modifiers = options.modifiers.toInt(),
+        .key = options.key_code,
+        .pointer_mode = @intFromEnum(options.pointer_mode),
+        .keyboard_mode = @intFromEnum(options.keyboard_mode),
+    });
+}
+
 pub fn ungrabKey(conn: *XConnection, key: XTypes.Types.Keycode, window: XWindow, modifiers: Modifiers) !void {
     try conn.send(Structs.UngrabKeyRequest{
         .key = key,
@@ -146,13 +175,13 @@ fn convertCase(keysym: XTypes.Types.Keysym, lower: *XTypes.Types.Keysym, upper: 
     // ! fix this
     switch (keysym >> 8) {
         1 => {
-            if (keysym == keys.XK_Aogonek)
-                lower.* == keys.XK_aogonek
-            else if (keysym >= keys.XK_Lstroke and keysym <= keys.XK_Sacute)
+            if (std.meta.eql(keysym, @as(u32, keys.XK_Aogonek))) {
+                lower.* = keys.XK_aogonek;
+            } else if (keysym >= keys.XK_Lstroke and keysym <= keys.XK_Sacute)
                 lower.* += (keys.XK_lstroke - keys.XK_Lstroke)
             else if (keysym >= keys.XK_Scaron and keysym <= keys.XK_Zacute)
                 lower.* += (keys.XK_scaron - keys.XK_Scaron)
-            else if (keysym >= keys.XK_Zcaron and keysym <= keys.keys.XK_Zabovedot)
+            else if (keysym >= keys.XK_Zcaron and keysym <= keys.XK_Zabovedot)
                 lower.* += (keys.XK_zcaron - keys.XK_Zcaron)
             else if (keysym == keys.XK_aogonek)
                 upper.* = keys.XK_Aogonek
@@ -175,7 +204,7 @@ fn convertCase(keysym: XTypes.Types.Keysym, lower: *XTypes.Types.Keysym, upper: 
             else if (keysym >= keys.XK_hstroke and keysym <= keys.XK_hcircumflex)
                 upper.* -= (keys.XK_hstroke - keys.XK_Hstroke)
             else if (keysym >= keys.XK_gbreve and keysym <= keys.XK_jcircumflex)
-                upper.* -= (keys.XK_gbreve - keys.keys.keys.XK_Gbreve)
+                upper.* -= (keys.XK_gbreve - keys.XK_Gbreve)
             else if (keysym >= keys.XK_Cabovedot and keysym <= keys.XK_Scircumflex)
                 lower.* += (keys.XK_cabovedot - keys.XK_Cabovedot)
             else if (keysym >= keys.XK_cabovedot and keysym <= keys.XK_scircumflex)

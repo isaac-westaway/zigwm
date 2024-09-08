@@ -1,3 +1,4 @@
+//! The Zig Window Manager object
 // manager
 // struct
 // allocator as input.
@@ -11,12 +12,17 @@ const Atoms = @import("x11/atoms.zig");
 const Events = @import("x11/events.zig");
 const Input = @import("x11/input.zig");
 
+const Config = @import("Config.zig");
+
 const XInit = @import("Init.zig").XInit;
 const XConnection = @import("Connection.zig").XConnection;
 const XId = @import("Xid.zig").XId;
 const XWindow = @import("Window.zig").XWindow;
 
 pub const ZWM = struct {
+    /// General purpose allocator
+    allocator: std.mem.Allocator,
+
     /// X Stuff
     x_init: XInit,
     x_connection: XConnection,
@@ -33,6 +39,7 @@ pub const ZWM = struct {
     pub fn init(allocator: *std.mem.Allocator, arena_allocator: std.mem.Allocator) !ZWM {
         // need to do this better
         var zwm: ZWM = ZWM{
+            .allocator = allocator.*,
             .x_init = XInit{
                 .allocator = allocator.*,
                 .x_auth_info = undefined,
@@ -115,16 +122,79 @@ pub const ZWM = struct {
         return zwm;
     }
 
-    pub fn close(self: *ZWM) !void {
+    pub fn close(self: ZWM) !void {
         self.x_connection.stream.close();
         self.x_init.x_authority.close();
     }
 
-    pub fn grabKeys(self: *ZWM) !void {
+    pub fn run(self: ZWM) !void {
+        while (true) {
+            var bytes: [32]u8 = undefined;
+            try self.x_connection.stream.reader().readNoEof(&bytes);
+
+            try switch (bytes[0]) {
+                // 0 => self.handleError(bytes),
+                1 => unreachable,
+                2...34 => self.handleEvent(bytes),
+                else => {}, // unahandled
+            };
+        }
+    }
+
+    fn grabKeys(self: *ZWM) !void {
         try Input.ungrabKey(&self.x_connection, 0, self.x_root_window, Input.Modifiers.any);
 
         self.keysym_table = try Input.KeysymTable.init(&self.x_connection);
 
-        // do config
+        inline for (Config.default_config.bindings) |binding| {
+            try Input.grabKey(&self.x_connection, .{
+                .grab_window = self.x_root_window,
+                .modifiers = binding.modifier,
+                .key_code = self.keysym_table.keysymToKeycode(binding.symbol),
+            });
+        }
+    }
+
+    fn handleEvent(self: ZWM, buffer: [32]u8) !void {
+        const event = Events.Event.fromBytes(buffer);
+
+        switch (event) {
+            .key_press => |key| try self.onKeyPress(key),
+            // .map_request => |map| try self.onMap(map),
+            // .configure_request => |conf| try self.onMap(conf),
+            else => {},
+        }
+    }
+
+    fn onKeyPress(self: ZWM, event: Events.InputDeviceEvent) !void {
+        inline for (Config.default_config.bindings) |binding| {
+            if (binding.symbol == self.keysym_table.keycodeToKeysym(event.detail) and binding.modifier.toInt() == event.state) {
+                switch (binding.action) {
+                    .cmd => |cmd| {
+                        return runCmd(@constCast(&self.allocator), cmd);
+                    },
+                    .function => |func| {
+                        return self.callAction(func.action, func.arg);
+                    },
+                }
+            }
+        }
+    }
+
+    fn runCmd(allocator: *std.mem.Allocator, cmd: []const []const u8) !void {
+        if (cmd.len == 0) return;
+
+        var process = std.process.Child.init(cmd, allocator.*);
+        defer _ = process.kill() catch {};
+
+        process.spawn() catch std.log.err("Could not spawn command cmd: {s}", .{cmd[0]});
+    }
+
+    fn callAction(self: *ZWM, action: anytype, arg: anytype) !void {
+        const Fn = @typeInfo(@TypeOf(action)).Fn;
+        const args = Fn.params;
+
+        if (args.len == 1) try action(self);
+        if (args.len == 2) try action(self, arg);
     }
 };

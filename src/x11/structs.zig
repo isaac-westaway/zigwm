@@ -46,6 +46,27 @@ pub const ChangeWindowAttributes = extern struct {
     mask: u32,
 };
 
+pub const InputDeviceEvent = extern struct {
+    code: u8,
+    detail: XType.Types.Keycode,
+    sequence: u16,
+    time: u32,
+    root: XType.Types.Window,
+    event: XType.Types.Window,
+    child: XType.Types.Window,
+    root_x: i16,
+    root_y: i16,
+    event_x: i16,
+    event_y: i16,
+    state: u16,
+    same_screen: u8,
+    pad: u8,
+
+    pub fn sameScreen(self: InputDeviceEvent) bool {
+        return self.same_screen == 1;
+    }
+};
+
 pub const UngrabKeyRequest = extern struct {
     major_opcode: u8 = 34,
     key: XType.Types.Keycode,
@@ -92,6 +113,18 @@ pub const KeyboardMappingRequest = extern struct {
     first_keycode: XType.Types.Keycode,
     count: u8,
     pad1: [2]u8 = [_]u8{ 0, 0 },
+};
+
+pub const GrabKeyRequest = extern struct {
+    major_opcode: u8 = 33,
+    owner_events: u8,
+    length: u16 = @sizeOf(GrabKeyRequest) / 4, // 4
+    grab_window: XType.Types.Window,
+    modifiers: u16,
+    key: XType.Types.Keycode,
+    pointer_mode: u8,
+    keyboard_mode: u8,
+    pad: [3]u8 = [_]u8{0} ** 3,
 };
 
 pub const KeyboardMappingReply = extern struct {
