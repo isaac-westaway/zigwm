@@ -20,7 +20,8 @@ pub fn main() !void {
 
     const zwm: ZWM = try ZWM.init(@constCast(&allocator), arena_allocator);
     defer zwm.close() catch {};
+    std.log.scoped(.main).info("Completed Init Method", .{});
 
-    std.debug.print("", .{});
+    std.log.scoped(.main).info("Running Window Manager", .{});
     try zwm.run();
 }

@@ -2,6 +2,8 @@
 //! this is copied from @juicebox window manager
 //! and the X reference manual
 
+pub const XK_Enter = 0xff8d;
+
 pub const XK_VoidSymbol = 0xffffff;
 pub const XK_BackSpace = 0xff08;
 pub const XK_Tab = 0xff09;

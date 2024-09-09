@@ -217,5 +217,7 @@ pub const XConnection = struct {
         std.log.scoped(.XConnection_initiateConnection).info("Successfully recieved response, trying to parse setup", .{});
         try self.parseSetup(@constCast(&arena_allocator.*), setup_buffer);
         std.log.scoped(.XConnection_initiateConnection).info("Completed connection initiation, returning", .{});
+
+        return;
     }
 };

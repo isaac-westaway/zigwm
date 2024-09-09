@@ -58,10 +58,25 @@ pub const KeysymTable = struct {
 
         const reply = try con.recv(Structs.KeyboardMappingReply);
 
-        const keysyms = try con.allocator.alloc(XTypes.Types.Keysym, reply.length * 2);
-        for (keysyms) |*keysym| {
-            keysym.* = try con.stream.reader().readInt(XTypes.Types.Keysym, builtin.target.cpu.arch.endian());
+        std.debug.print("Start", .{});
+
+        // ! fix this blocking
+
+        const keysyms = try con.allocator.alloc(XTypes.Types.Keysym, reply.length + 1);
+        for (keysyms, 0..) |*keysym, index| {
+            std.debug.print("Iteration: {any}\n", .{index});
+            keysym.* = con.stream.reader().readInt(XTypes.Types.Keysym, builtin.target.cpu.arch.endian()) catch |err| {
+                std.debug.print("Reading Failed: {any}\n", .{err});
+
+                return err;
+            };
+
+            if (index == reply.length - 1) {
+                break;
+            }
         }
+
+        std.debug.print("End", .{});
 
         return KeysymTable{
             .list = keysyms,

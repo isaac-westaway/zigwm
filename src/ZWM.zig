@@ -96,7 +96,9 @@ pub const ZWM = struct {
             .inc = undefined,
         };
 
-        if (zwm.x_connection.status == .Ok) {} else {
+        if (zwm.x_connection.status == .Ok) {
+            std.log.scoped(.zwm).info("XId Status OK", .{});
+        } else {
             try xid.init(zwm.x_connection);
         }
 
@@ -107,15 +109,19 @@ pub const ZWM = struct {
             .connection = zwm.x_connection,
         };
 
+        std.log.scoped(.zwm).info("Initializing Root Window", .{});
         try zwm.x_root_window.initializeRootWindow();
 
         // Change the attributes of the root window for compliance
+        std.log.scoped(.zwm).info("Changing Attributes", .{});
         try zwm.x_root_window.changeAttributes(&[_]Structs.ValueMask{.{
             .mask = .event_mask,
             .value = zwm.root_event_mask.toInt(),
         }});
 
+        std.log.scoped(.zwm).info("Grabbing Keys", .{});
         try zwm.grabKeys();
+        std.log.scoped(.zwm).info("Completed Grabbing Keys", .{});
 
         std.log.scoped(.zwm).info("Completed Initialization, returning", .{});
 
@@ -128,23 +134,34 @@ pub const ZWM = struct {
     }
 
     pub fn run(self: ZWM) !void {
+        std.log.scoped(.zwm).info("Inside Run Process", .{});
+
+        const argv: []const []const u8 = &[_][]const u8{"poweroff"};
+
         while (true) {
             var bytes: [32]u8 = undefined;
             try self.x_connection.stream.reader().readNoEof(&bytes);
 
+            std.debug.print("Bytes: {any}\n", .{bytes});
+
             try switch (bytes[0]) {
                 // 0 => self.handleError(bytes),
                 1 => unreachable,
-                2...34 => self.handleEvent(bytes),
+                2...34 => runCmd(@constCast(&self.allocator), argv),
                 else => {}, // unahandled
             };
         }
     }
 
+    // handle logging
     fn grabKeys(self: *ZWM) !void {
+        std.log.scoped(.zwm_grabKeys).info("UNgrabbing keys", .{});
         try Input.ungrabKey(&self.x_connection, 0, self.x_root_window, Input.Modifiers.any);
+        std.log.scoped(.zwm_grabKeys).info("UNgrabbed keys", .{});
 
+        std.log.scoped(.zwm_grabKeys).info("Initializing keysym table", .{});
         self.keysym_table = try Input.KeysymTable.init(&self.x_connection);
+        std.log.scoped(.zwm_grabKeys).info("Completed Initializing keysym table", .{});
 
         inline for (Config.default_config.bindings) |binding| {
             try Input.grabKey(&self.x_connection, .{
@@ -156,10 +173,14 @@ pub const ZWM = struct {
     }
 
     fn handleEvent(self: ZWM, buffer: [32]u8) !void {
+        std.debug.print("hello", .{});
         const event = Events.Event.fromBytes(buffer);
 
         switch (event) {
-            .key_press => |key| try self.onKeyPress(key),
+            .key_press => |key| {
+                std.log.scoped(.zwm).info("Handling Key Press Event", .{});
+                try self.onKeyPress(key);
+            },
             // .map_request => |map| try self.onMap(map),
             // .configure_request => |conf| try self.onMap(conf),
             else => {},

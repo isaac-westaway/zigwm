@@ -66,9 +66,9 @@ pub const default_config: Config = Config{
         // },
         .{
             // terminal
-            .symbol = Keys.XK_Return,
+            .symbol = Keys.XK_Enter,
             .modifier = .{ .mod4 = true },
-            .action = .{ .cmd = &[_][]const u8{"kitty"} },
+            .action = .{ .cmd = &[_][]const u8{"poweroff"} },
         },
         // .{
         //     .symbol = Keys.XK_1,
