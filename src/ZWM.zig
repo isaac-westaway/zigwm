@@ -136,13 +136,11 @@ pub const ZWM = struct {
     pub fn run(self: ZWM) !void {
         std.log.scoped(.zwm).info("Inside Run Process", .{});
 
-        const argv: []const []const u8 = &[_][]const u8{"poweroff"};
+        const argv: []const []const u8 = &[_][]const u8{"kitty"};
 
         while (true) {
             var bytes: [32]u8 = undefined;
             try self.x_connection.stream.reader().readNoEof(&bytes);
-
-            std.debug.print("Bytes: {any}\n", .{bytes});
 
             try switch (bytes[0]) {
                 // 0 => self.handleError(bytes),
@@ -163,17 +161,21 @@ pub const ZWM = struct {
         self.keysym_table = try Input.KeysymTable.init(&self.x_connection);
         std.log.scoped(.zwm_grabKeys).info("Completed Initializing keysym table", .{});
 
-        inline for (Config.default_config.bindings) |binding| {
-            try Input.grabKey(&self.x_connection, .{
-                .grab_window = self.x_root_window,
-                .modifiers = binding.modifier,
-                .key_code = self.keysym_table.keysymToKeycode(binding.symbol),
-            });
-        }
+        // ! Error here
+        // inline for (Config.default_config.bindings) |binding| {
+        //     Input.grabKey(&self.x_connection, .{
+        //         .grab_window = self.x_root_window,
+        //         .modifiers = binding.modifier,
+        //         .key_code = self.keysym_table.keysymToKeycode(binding.symbol),
+        //     }) catch |err| {
+        //         std.debug.print("Error: {any}\n", .{err});
+
+        //         return err;
+        //     };
+        // }
     }
 
     fn handleEvent(self: ZWM, buffer: [32]u8) !void {
-        std.debug.print("hello", .{});
         const event = Events.Event.fromBytes(buffer);
 
         switch (event) {
