@@ -19,7 +19,7 @@ pub fn main() !void {
     std.log.scoped(.main).info("Initializing startup process", .{});
 
     const zwm: ZWM = try ZWM.init(@constCast(&allocator), arena_allocator);
-    defer zwm.close() catch {};
+    defer zwm.close();
     std.log.scoped(.main).info("Completed Init Method", .{});
 
     std.log.scoped(.main).info("Running Window Manager", .{});

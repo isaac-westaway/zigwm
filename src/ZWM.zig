@@ -128,26 +128,29 @@ pub const ZWM = struct {
         return zwm;
     }
 
-    pub fn close(self: ZWM) !void {
+    pub fn close(self: ZWM) void {
         self.x_connection.stream.close();
         self.x_init.x_authority.close();
+        self.keysym_table.deinit(@constCast(&self.allocator));
     }
 
     pub fn run(self: ZWM) !void {
         std.log.scoped(.zwm).info("Inside Run Process", .{});
 
-        const argv: []const []const u8 = &[_][]const u8{"kitty"};
-
         while (true) {
             var bytes: [32]u8 = undefined;
             try self.x_connection.stream.reader().readNoEof(&bytes);
 
-            try switch (bytes[0]) {
+            switch (bytes[0]) {
                 // 0 => self.handleError(bytes),
                 1 => unreachable,
-                2...34 => runCmd(@constCast(&self.allocator), argv),
+                2...34 => {
+                    std.log.scoped(.zwm_run_while_switch).info("Handling Event", .{});
+                    try self.handleEvent(bytes);
+                    return;
+                },
                 else => {}, // unahandled
-            };
+            }
         }
     }
 
@@ -159,28 +162,18 @@ pub const ZWM = struct {
 
         std.log.scoped(.zwm_grabKeys).info("Initializing keysym table", .{});
         self.keysym_table = try Input.KeysymTable.init(&self.x_connection);
+
         std.log.scoped(.zwm_grabKeys).info("Completed Initializing keysym table", .{});
-
-        // ! Error here
-        // inline for (Config.default_config.bindings) |binding| {
-        //     Input.grabKey(&self.x_connection, .{
-        //         .grab_window = self.x_root_window,
-        //         .modifiers = binding.modifier,
-        //         .key_code = self.keysym_table.keysymToKeycode(binding.symbol),
-        //     }) catch |err| {
-        //         std.debug.print("Error: {any}\n", .{err});
-
-        //         return err;
-        //     };
-        // }
     }
 
     fn handleEvent(self: ZWM, buffer: [32]u8) !void {
         const event = Events.Event.fromBytes(buffer);
+        const argv: []const []const u8 = &[_][]const u8{"kitty"};
 
         switch (event) {
             .key_press => |key| {
                 std.log.scoped(.zwm).info("Handling Key Press Event", .{});
+                try runCmd(self.allocator, argv);
                 try self.onKeyPress(key);
             },
             // .map_request => |map| try self.onMap(map),
@@ -194,7 +187,7 @@ pub const ZWM = struct {
             if (binding.symbol == self.keysym_table.keycodeToKeysym(event.detail) and binding.modifier.toInt() == event.state) {
                 switch (binding.action) {
                     .cmd => |cmd| {
-                        return runCmd(@constCast(&self.allocator), cmd);
+                        return runCmd(self.allocator, cmd);
                     },
                     .function => |func| {
                         return self.callAction(func.action, func.arg);
@@ -204,13 +197,10 @@ pub const ZWM = struct {
         }
     }
 
-    fn runCmd(allocator: *std.mem.Allocator, cmd: []const []const u8) !void {
+    fn runCmd(allocator: std.mem.Allocator, cmd: []const []const u8) !void {
         if (cmd.len == 0) return;
 
-        var process = std.process.Child.init(cmd, allocator.*);
-        defer _ = process.kill() catch {};
-
-        process.spawn() catch std.log.err("Could not spawn command cmd: {s}", .{cmd[0]});
+        _ = try std.process.Child.run(.{ .allocator = allocator, .argv = cmd });
     }
 
     fn callAction(self: *ZWM, action: anytype, arg: anytype) !void {

@@ -58,6 +58,7 @@ pub const KeysymTable = struct {
 
         const reply = try con.recv(Structs.KeyboardMappingReply);
 
+        // memory leak here
         const keysyms = try con.allocator.alloc(XTypes.Types.Keysym, reply.length);
 
         for (keysyms) |*keysym| {
