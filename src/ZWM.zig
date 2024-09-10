@@ -102,6 +102,8 @@ pub const ZWM = struct {
             try xid.init(zwm.x_connection);
         }
 
+        // initilize the layout manager and workspace manager
+
         zwm.screen = zwm.x_connection.screens[0];
 
         zwm.x_root_window = XWindow{
@@ -167,15 +169,15 @@ pub const ZWM = struct {
 
     fn handleEvent(self: ZWM, buffer: [32]u8) !void {
         const event = Events.Event.fromBytes(buffer);
-        const argv: []const []const u8 = &[_][]const u8{"kitty"};
+        // const argv: []const []const u8 = &[_][]const u8{"kitty"};
 
         switch (event) {
             .key_press => |key| {
                 std.log.scoped(.zwm).info("Handling Key Press Event", .{});
-                try runCmd(self.allocator, argv);
+                // try runCmd(self.allocator, argv);
                 try self.onKeyPress(key);
             },
-            // .map_request => |map| try self.onMap(map),
+            .map_request => |map| try self.onMap(map),
             // .configure_request => |conf| try self.onMap(conf),
             else => {},
         }
@@ -194,6 +196,13 @@ pub const ZWM = struct {
                 }
             }
         }
+    }
+
+    fn onMap(self: ZWM, event: Events.MapRequest) !void {
+        const window = XWindow{ .connection = self.x_connection, .handle = event.window };
+        _ = window;
+
+        // map the window in a layout manager
     }
 
     fn runCmd(allocator: std.mem.Allocator, cmd: []const []const u8) !void {
