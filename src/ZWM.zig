@@ -145,9 +145,8 @@ pub const ZWM = struct {
                 // 0 => self.handleError(bytes),
                 1 => unreachable,
                 2...34 => {
-                    std.log.scoped(.zwm_run_while_switch).info("Handling Event", .{});
+                    // std.log.scoped(.zwm_run_while_switch).info("Handling Event", .{});
                     try self.handleEvent(bytes);
-                    return;
                 },
                 else => {}, // unahandled
             }
