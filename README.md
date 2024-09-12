@@ -6,6 +6,8 @@ Todos
 =====
 - implement teardown logic of x_connection
 - CreateCursor
+- proper logging ( no more _ = try)
+- catch statements should switch between errors instead of just erroring
 
 Credits
 ======

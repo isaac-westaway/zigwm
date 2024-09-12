@@ -98,6 +98,9 @@ pub const KeysymTable = struct {
         var per: u32 = self.keysyms_per_keycode;
         var mut_col = col;
         const start: usize = (keycode - self.min_keycode) * per;
+
+        // ! error
+
         const keysyms = self.list[start .. start + per];
         if (col < 4) {
             if (col > 1) {

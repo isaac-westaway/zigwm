@@ -16,12 +16,22 @@ pub fn main() !void {
     defer heap_arena_allocator.deinit();
     const arena_allocator = heap_arena_allocator.allocator();
 
-    std.log.scoped(.main).info("Initializing startup process", .{});
+    const logfile: std.fs.File = try std.fs.cwd().createFile("zigwm.log", .{ .read = true });
+    defer logfile.close();
 
-    const zwm: ZWM = try ZWM.init(@constCast(&allocator), arena_allocator);
+    const message = "MAIN: Initializing Startup Process\n";
+    const time = try std.fmt.allocPrint(allocator, "{d} ", .{std.time.timestamp()});
+    const combine: [2][]const u8 = [_][]const u8{ time, message };
+
+    const combined = try std.mem.concat(allocator, u8, &combine);
+    _ = try logfile.write(combined);
+
+    // TODO: error handling
+    const zwm: ZWM = try ZWM.init(@constCast(&allocator), arena_allocator, logfile);
     defer zwm.close();
-    std.log.scoped(.main).info("Completed Init Method", .{});
 
-    std.log.scoped(.main).info("Running Window Manager", .{});
+    _ = try logfile.write("MAIN: Completed zwm initialization method\n");
+
+    _ = try logfile.write("Running WIndow Manager\n");
     try zwm.run();
 }
