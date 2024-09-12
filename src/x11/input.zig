@@ -58,14 +58,11 @@ pub const KeysymTable = struct {
 
         const reply = try con.recv(Structs.KeyboardMappingReply);
 
-        // memory leak here
         const keysyms = try con.allocator.alloc(XTypes.Types.Keysym, reply.length);
 
         for (keysyms) |*keysym| {
-            // std.debug.print("Iteration: {any}\n", .{index});
             keysym.* = con.stream.reader().readInt(XTypes.Types.Keysym, builtin.target.cpu.arch.endian()) catch |err| {
-                std.debug.print("Reading Failed: {any}\n", .{err});
-
+                // TODO: builtin logging
                 return err;
             };
         }
