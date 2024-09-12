@@ -2,6 +2,7 @@
 //! this is copied from @juicebox window manager
 //! and the X reference manual
 
+/// Number pad enter
 pub const XK_Enter = 0xff8d;
 
 pub const XK_VoidSymbol = 0xffffff;

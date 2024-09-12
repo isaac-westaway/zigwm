@@ -196,15 +196,12 @@ pub const ZWM = struct {
         switch (event) {
             .key_press => |key| {
                 _ = try self.logfile.write("ZWM_RUN_HANDLEEVENT_SWITCH: KEYPRESS event notification\n");
-                // try runCmd(self.allocator, argv);
                 try self.onKeyPress(key);
             },
-            // .map_request => |map| {
-            //     _ = try self.logfile.write("ZWM_RUN_HANDLEEVENT_SWITCH: MAPREQUEST event notification\n");
-            //     try self.onMap(map);
-            // },
-            // .configure_request => |conf| try self.onMap(conf),
 
+            // create event,
+            // destroy event
+            // map reqeust,
             // enter notify,
             // leave notify
             else => {
@@ -219,23 +216,18 @@ pub const ZWM = struct {
     fn onKeyPress(self: ZWM, event: Events.InputDeviceEvent) !void {
         _ = try self.logfile.write("ZWM_RUN_HANDLEEVENT_ONKEYPRESS: Attempting to Handle keypress event\n");
 
-        // ! the oiginal error
+        const mod4 = Input.Modifiers{
+            .mod4 = true,
+        };
+        const argv = &[_][]const u8{"kitty"};
 
-        const string = try std.fmt.allocPrint(self.allocator, "event: .code = {}, .detail = {}, .sequence = {}, .time = {}, .root = {}, .event = {}, .root_x = {}, .root_y = {}, .event_x = {}, .event_y = {}, .state = {}, .same_screen = {}, .pad = {}\n", .{ event.code, event.detail, event.sequence, event.time, event.root, event.event, event.root_x, event.root_y, event.event_x, event.event_y, event.state, event.same_screen, event.pad });
-
-        _ = try self.logfile.write(string);
-        // inline for (Config.default_config.bindings) |binding| {
-        //     if (binding.symbol == self.keysym_table.keycodeToKeysym(event.detail) and binding.modifier.toInt() == event.state) {
-        //         switch (binding.action) {
-        //             .cmd => |cmd| {
-        //                 return runCmd(self.allocator, cmd);
-        //             },
-        //             .function => |func| {
-        //                 return self.callAction(func.action, func.arg);
-        //             },
-        //         }
-        //     }
-        // }
+        if (Keys.XK_Return == self.keysym_table.keycodeToKeysym(event.detail) and mod4.toInt() == event.state) {
+            _ = try self.logfile.write("Trying to open cmd");
+            runCmd(self.allocator, argv) catch {
+                _ = try self.logfile.write("ZWM_RUN_HANDLEEVENT_ONKEYPRESS_IF_XKRETURN: FAILED to run command\n");
+            };
+            _ = try self.logfile.write("Opened cmd");
+        }
     }
 
     fn onMap(self: ZWM, event: Events.MapRequest) !void {
@@ -248,7 +240,9 @@ pub const ZWM = struct {
     fn runCmd(allocator: std.mem.Allocator, cmd: []const []const u8) !void {
         if (cmd.len == 0) return;
 
-        _ = try std.process.Child.run(.{ .allocator = allocator, .argv = cmd });
+        var process = std.process.Child.init(cmd, allocator);
+
+        try process.spawn();
     }
 
     fn callAction(self: *ZWM, action: anytype, arg: anytype) !void {
