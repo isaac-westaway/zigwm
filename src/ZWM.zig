@@ -13,8 +13,6 @@ const Events = @import("x11/events.zig");
 const Input = @import("x11/input.zig");
 const Keys = @import("x11/keys.zig");
 
-const Config = @import("Config.zig");
-
 const XInit = @import("Init.zig").XInit;
 const XConnection = @import("Connection.zig").XConnection;
 const XId = @import("Xid.zig").XId;
