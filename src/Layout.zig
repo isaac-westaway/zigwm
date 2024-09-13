@@ -50,6 +50,7 @@ pub const XLayout = struct {
             .mask = .event_mask,
             .value = window_event_mask.toInt(),
         }});
+        // change property to update the net client list
 
         try _window.map();
 

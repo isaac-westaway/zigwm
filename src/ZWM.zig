@@ -210,7 +210,7 @@ pub const ZWM = struct {
                 1 => _ = try self.logfile.write("ZWM_RUN: ERROR READING EVENT STREAM\n"),
                 2...34 => try self.handleEvent(bytes),
                 else => {
-                    _ = try self.logfile.write("ZWM_RUN: somethign went wrong");
+                    _ = try self.logfile.write("ZWM_RUN: somethign went wrong\n");
                 }, // unahandled
             }
         }
@@ -226,18 +226,17 @@ pub const ZWM = struct {
                 try self.onKeyPress(key);
             },
             .map_request => |map| {
+                _ = try self.logfile.write("ZWM_RUN_HANDLEEVENT_SWITCH: MAPREQUEST event notification\n");
                 try self.onMap(map);
             },
 
-            // TODO: create event,
+            // TODO: create event (create notify),
             // TODO: destroy event
             // // TODO: map reqeust,
             // TODO: enter notify,
             // TODO: leave notify
             else => {
-                const formatted_event = try std.fmt.allocPrint(self.allocator, "event: {any}\n", .{event});
-
-                _ = try self.logfile.write("ZWM_RUN_HANDLEEVENT_SWITCH: UNHANDLED event\n");
+                const formatted_event = try std.fmt.allocPrint(self.allocator, "Unmhandled Event: {any}\n", .{@intFromEnum(event)});
                 _ = try self.logfile.write(formatted_event);
             },
         }
@@ -252,11 +251,11 @@ pub const ZWM = struct {
         const argv = &[_][]const u8{"kitty"};
 
         if (Keys.XK_Return == self.keysym_table.keycodeToKeysym(event.detail) and mod4.toInt() == event.state) {
-            _ = try self.logfile.write("Trying to open cmd");
+            _ = try self.logfile.write("Trying to open cmd\n");
             runCmd(self.allocator, argv) catch {
                 _ = try self.logfile.write("ZWM_RUN_HANDLEEVENT_ONKEYPRESS_IF_XKRETURN: FAILED to run command\n");
             };
-            _ = try self.logfile.write("Opened cmd");
+            _ = try self.logfile.write("Opened cmd\n");
         }
     }
 
