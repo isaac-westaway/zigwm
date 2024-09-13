@@ -97,7 +97,6 @@ pub const KeysymTable = struct {
         const start: usize = (keycode - self.min_keycode) * per;
 
         // ! error
-
         const keysyms = self.list[start .. start + per];
         if (col < 4) {
             if (col > 1) {

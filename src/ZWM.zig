@@ -17,6 +17,8 @@ const XInit = @import("Init.zig").XInit;
 const XConnection = @import("Connection.zig").XConnection;
 const XId = @import("Xid.zig").XId;
 const XWindow = @import("Window.zig").XWindow;
+const XLayout = @import("Layout.zig").XLayout;
+const XWorkspace = @import("Workspace.zig").XWorkspace;
 
 pub const ZWM = struct {
     /// General purpose allocator
@@ -27,6 +29,8 @@ pub const ZWM = struct {
     x_init: XInit,
     x_connection: XConnection,
     x_root_window: XWindow,
+    x_workspace: XWorkspace,
+    x_layout: XLayout,
 
     /// ZWM handlers
     /// The currently active screen
@@ -38,7 +42,7 @@ pub const ZWM = struct {
 
     // TODO: error handling
     pub fn init(allocator: *std.mem.Allocator, arena_allocator: std.mem.Allocator, logfile: std.fs.File) !ZWM {
-        // need to do this better
+        // TODO: need to do this better
         var zwm: ZWM = ZWM{
             .allocator = allocator.*,
             .logfile = logfile,
@@ -58,6 +62,15 @@ pub const ZWM = struct {
             .x_root_window = XWindow{
                 .connection = undefined,
                 .handle = undefined,
+            },
+            .x_workspace = XWorkspace{
+                .windows = undefined,
+            },
+            .x_layout = XLayout{
+                .allocator = allocator.*,
+                .current = undefined,
+                .dimensions = .{ .height = undefined, .width = undefined },
+                .workspace = undefined,
             },
             .screen = undefined,
             .keysym_table = undefined,
@@ -150,25 +163,36 @@ pub const ZWM = struct {
         Input.ungrabKey(&zwm.x_connection, 0, zwm.x_root_window, Input.Modifiers.any) catch {
             _ = try zwm.logfile.write("ZWM_INIT: FAILED to ungrab all keys");
         };
+        _ = try zwm.logfile.write("ZWM_INIT: Initializing KeySym table\n");
         zwm.keysym_table = Input.KeysymTable.init(&zwm.x_connection) catch {
             _ = try zwm.logfile.write("ZWM_INIT: FAILED to grab keys\n");
-
             return undefined;
         };
         std.debug.assert(@TypeOf(zwm.keysym_table) == Input.KeysymTable);
+        _ = try zwm.logfile.write("ZWM_INIT: Grabbing Windows+Enter Key\n");
         Input.grabKey(&zwm.x_connection, .{ .grab_window = zwm.x_root_window, .modifiers = .{ .mod4 = true }, .key_code = zwm.keysym_table.keysymToKeycode(Keys.XK_Return) }) catch {
             _ = try zwm.logfile.write("ZWM_INIT: ERROR grabbing enter key");
         };
         _ = try zwm.logfile.write("ZWM_INIT: SUCCESSFULLY grabbed keys\n");
+
+        // Initialize the layout manager
+        zwm.x_layout.init(.{
+            .width = zwm.x_connection.screens[0].width_pixel,
+            .height = zwm.x_connection.screens[0].height_pixel,
+        }, zwm.x_workspace) catch {
+            zwm.logfile.write("ZWM_INIT: ERROR initializing the layout");
+        };
 
         _ = try zwm.logfile.write("ZWM_INIT: SUCCESSFULLY completed zwm initialization\n");
         return zwm;
     }
 
     pub fn close(self: ZWM) void {
+        // TODO: make all these close functions errorable
         self.x_connection.stream.close();
         self.x_init.x_authority.close();
         self.keysym_table.deinit(@constCast(&self.allocator));
+        self.x_layout.close();
     }
 
     pub fn run(self: ZWM) !void {
@@ -196,12 +220,15 @@ pub const ZWM = struct {
                 _ = try self.logfile.write("ZWM_RUN_HANDLEEVENT_SWITCH: KEYPRESS event notification\n");
                 try self.onKeyPress(key);
             },
+            .map_request => |map| {
+                try self.onMap(map);
+            },
 
-            // create event,
-            // destroy event
-            // map reqeust,
-            // enter notify,
-            // leave notify
+            // TODO: create event,
+            // TODO: destroy event
+            // // TODO: map reqeust,
+            // TODO: enter notify,
+            // TODO: leave notify
             else => {
                 const formatted_event = try std.fmt.allocPrint(self.allocator, "event: {any}\n", .{event});
 

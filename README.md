@@ -2,6 +2,11 @@ Overview
 =====
 Simple Dependency free window manager written in Zig
 
+> [!WARNING]
+> There is an odd error when the window manager is run with a unix stream socket of X1, an out-of-bounds error will occur in ZWM, GrabKeys, KeySymtoKeyCode and KeySymatCol.
+> Until I fix this, just make sure when running `startx` that the socket is `X0` by running `startx -- :0`
+
+
 Todos
 =====
 - implement teardown logic of x_connection
