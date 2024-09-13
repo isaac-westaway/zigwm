@@ -29,7 +29,7 @@ pub const ZWM = struct {
     x_init: XInit,
     x_connection: XConnection,
     x_root_window: XWindow,
-    x_workspace: XWorkspace,
+    // x_workspace: XWorkspace,
     x_layout: XLayout,
 
     /// ZWM handlers
@@ -63,14 +63,18 @@ pub const ZWM = struct {
                 .connection = undefined,
                 .handle = undefined,
             },
-            .x_workspace = XWorkspace{
-                .windows = undefined,
-            },
+            // .x_workspace = XWorkspace{
+            //     .focused = undefined,
+            //     .mode = .tiled,
+            //     .name = undefined,
+            //     .id = undefined,
+            //     .window_list = undefined,
+            // },
             .x_layout = XLayout{
                 .allocator = allocator.*,
                 .current = undefined,
                 .dimensions = .{ .height = undefined, .width = undefined },
-                .workspace = undefined,
+                .workspaces = undefined,
             },
             .screen = undefined,
             .keysym_table = undefined,
@@ -179,7 +183,7 @@ pub const ZWM = struct {
         zwm.x_layout.init(.{
             .width = zwm.x_connection.screens[0].width_pixel,
             .height = zwm.x_connection.screens[0].height_pixel,
-        }, zwm.x_workspace) catch {
+        }) catch {
             zwm.logfile.write("ZWM_INIT: ERROR initializing the layout");
         };
 
@@ -193,6 +197,7 @@ pub const ZWM = struct {
         self.x_init.x_authority.close();
         self.keysym_table.deinit(@constCast(&self.allocator));
         self.x_layout.close();
+        // No need to close XWorkspace because it is closed in x_layout
     }
 
     pub fn run(self: ZWM) !void {
@@ -257,7 +262,7 @@ pub const ZWM = struct {
 
     fn onMap(self: ZWM, event: Events.MapRequest) !void {
         const window = XWindow{ .connection = self.x_connection, .handle = event.window };
-        _ = window;
+        try self.x_layout.mapWindow(window);
 
         // map the window in a layout manager
     }

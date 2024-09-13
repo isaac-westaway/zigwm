@@ -13,6 +13,8 @@ Todos
 - CreateCursor
 - proper logging ( no more _ = try)
 - catch statements should switch between errors instead of just erroring
+- send workspace list (desktop_properties) and client list (wmctrl)
+- all the todos in the comments
 
 Credits
 ======
