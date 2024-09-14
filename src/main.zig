@@ -23,6 +23,7 @@ pub fn main() !void {
     };
     defer Logger.Log.close();
 
+    try Logger.Log.info("MAIN", try std.fmt.allocPrint(allocator, "{d}", .{std.time.timestamp()}));
     try Logger.Log.info("MAIN", "Initializing startup process");
     // TODO: error handling
     const zwm: ZWM = try ZWM.init(@constCast(&allocator), arena_allocator);

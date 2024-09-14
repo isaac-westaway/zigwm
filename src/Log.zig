@@ -1,9 +1,6 @@
 //! Logging module
 const std = @import("std");
 
-const number_of_leap_seconds: comptime_int = 27;
-const seconds_in_year: comptime_int = 31557600;
-
 const Severity = enum {
     debug,
     // trace (verbose)
@@ -13,52 +10,109 @@ const Severity = enum {
     fatal,
 };
 
+fn isLeapYear(year: u64) bool {
+    return if ((@mod(year, 4) == 0 and @mod(year, 100) != 0) or @mod(year, 400) == 0) true else false;
+}
+
 const Logger = struct {
     allocator: std.mem.Allocator,
     log_file: std.fs.File,
 
     pub fn timestampToDatetime(timestamp: i64, allocator: std.mem.Allocator) []const u8 {
+        const number_of_leap_seconds: comptime_int = 27;
+        var current_year_unix: u32 = 1970;
+
         const leap_timestamp: f80 = @as(f80, @as(f80, @floatFromInt(number_of_leap_seconds)) + @as(f80, @floatFromInt(timestamp)));
-        std.debug.print("leap_timestamp: {d}\n", .{leap_timestamp});
+
+        const days_in_months: [12]i32 = [_]i32{ 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 
         // leap timestamp is 1726277658
         // number of seconds in a year is 31557600
         // number of leap seconds is 27
+        var extra_days: f80 = 0;
 
         // number of seconds that has passed from jan 1 1970
         // 27 leap seconds have passed since then
+        var seconds_to_days: f80 = leap_timestamp / 86400;
+        const extra_time: f80 = @mod(leap_timestamp, 86400);
+        var flag: u8 = 0;
 
-        const year: f80 = 1970 + (leap_timestamp / @as(f80, @floatFromInt(seconds_in_year)));
-        const month: f80 = @mod(year, 1) * @as(f80, @floatFromInt(12));
-
-        var is_leap_year: bool = false;
-        var days_in_months: [12]i32 = [_]i32{ 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
-        if ((@mod(std.math.floor(year), 4) == 0) and (@mod(std.math.floor(year), 100) != 0)) {
-            days_in_months[1] = 29;
-            is_leap_year = true;
-        } else if (@mod(std.math.floor(year), 400) == 0) {
-            days_in_months[1] = 29;
-            is_leap_year = true;
+        while (true) {
+            if (isLeapYear(current_year_unix)) {
+                if (seconds_to_days < 366) {
+                    break;
+                }
+                seconds_to_days -= 366;
+            } else {
+                if (seconds_to_days < 365) {
+                    break;
+                }
+                seconds_to_days -= 365;
+            }
+            current_year_unix += 1;
         }
 
-        var day: f80 = 0;
-        for (days_in_months, 0..) |current_month, index| {
-            if (@as(i32, @intFromFloat(std.math.floor(month))) == index) {
-                day = @as(f80, @floatFromInt(current_month)) * @mod(month, 1);
+        extra_days = seconds_to_days + 1;
 
-                if (is_leap_year) day += 1;
+        if (isLeapYear(current_year_unix)) {
+            flag = 1;
+        }
+
+        var date: f80 = 0;
+        var month: u8 = 0;
+        var index: u8 = 0;
+
+        if (flag == 1) {
+            while (true) {
+                if (index == 1) {
+                    if (extra_days - 29 < 0) {
+                        break;
+                    }
+
+                    month += 1;
+                    extra_days -= 29;
+                } else {
+                    if (extra_days - @as(f80, @floatFromInt(days_in_months[index])) < 0) {
+                        break;
+                    }
+
+                    month += 1;
+                    extra_days -= @as(f80, @floatFromInt(days_in_months[index]));
+                }
+
+                index += 1;
+            }
+        } else {
+            while (true) {
+                if (extra_days - @as(f80, @floatFromInt(days_in_months[index])) < 0) {
+                    break;
+                }
+
+                month += 1;
+                extra_days -= @as(f80, @floatFromInt(days_in_months[index]));
+                index += 1;
             }
         }
 
-        // !!! now to do this !!!
-        const hour: f80 = ((leap_timestamp / 86400) - @floor(leap_timestamp / 86400)) * 12;
-        const minute: f80 = (hour - @floor(hour)) * 60;
-        const second: f80 = (minute - @floor(minute)) * 60;
+        if (extra_days > 0) {
+            month += 1;
+            date = extra_days;
+        } else {
+            if (month == 2 and flag == 1) {
+                date = 29;
+            } else {
+                date = @as(f80, @floatFromInt(days_in_months[month - 1]));
+            }
+        }
+
+        // adjust for AEST time
+        const hours = extra_time / 3600 + 10;
+        const minutes = @divExact(@mod(extra_time, 3600), 60);
+        const seconds = @mod(@mod(extra_time, 3600), 60);
 
         // YYYY/MM/DD
-        // month is ceiled because we say we are in the 9th month (sept) even though we are not complete with the month, same with day
-        // this is odd because we say we are in 2024 even though 2024 is not complete, and technically we are in the 2025th year of the calendar
-        const formatted_time: []u8 = std.fmt.allocPrint(allocator, "{d}/{d}/{d}-{d}:{d}:{d}", .{ @floor(year), @ceil(month), @ceil(day), @floor(hour), @floor(minute), @floor(second) }) catch {
+        // In UTC time, because the current computer system is in UTC time, adjust for AEST
+        const formatted_time: []u8 = std.fmt.allocPrint(allocator, "{d}/{d}/{d}-{d}:{d}:{d}", .{ current_year_unix, month, @floor(date), @floor(hours), minutes, seconds }) catch {
             // TODO: handle errors
             return undefined;
         };
@@ -74,7 +128,7 @@ const Logger = struct {
         const current_time = std.time.timestamp();
         const formatted_time = timestampToDatetime(current_time, self.allocator);
 
-        const combined = std.fmt.allocPrint(self.allocator, "INFO-{s}-{s}: {s}", .{ namespace, formatted_time, message }) catch {
+        const combined = std.fmt.allocPrint(self.allocator, "INFO-{s}-{s}: {s}\n", .{ namespace, formatted_time, message }) catch {
             // return error, actually
             return;
         };
