@@ -23,7 +23,6 @@ const XWorkspace = @import("Workspace.zig").XWorkspace;
 pub const ZWM = struct {
     /// General purpose allocator
     allocator: std.mem.Allocator,
-    logfile: std.fs.File,
 
     /// X Stuff
     x_init: XInit,
@@ -41,11 +40,10 @@ pub const ZWM = struct {
     // create  struct of initialization data, one place of consistency, especially for streams and auth info
 
     // TODO: error handling
-    pub fn init(allocator: *std.mem.Allocator, arena_allocator: std.mem.Allocator, logfile: std.fs.File) !ZWM {
+    pub fn init(allocator: *std.mem.Allocator, arena_allocator: std.mem.Allocator) !ZWM {
         // TODO: need to do this better
         var zwm: ZWM = ZWM{
             .allocator = allocator.*,
-            .logfile = logfile,
             .x_init = XInit{
                 .allocator = allocator.*,
                 .x_auth_info = undefined,
@@ -87,48 +85,48 @@ pub const ZWM = struct {
         };
 
         // TODO: Crash window manager if this fails
-        _ = try zwm.logfile.write("ZWM_INIT: Initializing Unix Stream\n");
+        // _ = try zwm.logfile.write("ZWM_INIT: Initializing Unix Stream\n");
         const socket: std.net.Stream = std.net.connectUnixSocket("/tmp/.X11-unix/X0") catch {
-            _ = try zwm.logfile.write("ZWM: FAILED to initialize Unix Stream\n");
+            // _ = try zwm.logfile.write("ZWM: FAILED to initialize Unix Stream\n");
 
             return undefined;
         };
         std.debug.assert(@TypeOf(socket) == std.net.Stream);
         zwm.x_connection.stream = socket;
-        _ = try zwm.logfile.write("ZWM_INIT: SUCCESSFULLY opened a unix stream\n");
+        // _ = try zwm.logfile.write("ZWM_INIT: SUCCESSFULLY opened a unix stream\n");
 
-        _ = try zwm.logfile.write("ZWM_INIT: Opening XAUTHORITY file\n");
+        // _ = try zwm.logfile.write("ZWM_INIT: Opening XAUTHORITY file\n");
         const x_authority: std.fs.File = std.fs.openFileAbsolute(std.posix.getenv("XAUTHORITY").?, .{}) catch {
-            _ = try zwm.logfile.write("ZWM_INIT: FAILED to open XAUTHIRTY\n");
+            // _ = try zwm.logfile.write("ZWM_INIT: FAILED to open XAUTHIRTY\n");
 
             return undefined;
         };
         std.debug.assert(@TypeOf(x_authority) == std.fs.File);
         zwm.x_init.x_authority = x_authority;
-        _ = try zwm.logfile.write("ZWM_INIT: SUCCESSFULLY opened XAUTHORITY file\n");
+        // _ = try zwm.logfile.write("ZWM_INIT: SUCCESSFULLY opened XAUTHORITY file\n");
 
-        _ = try zwm.logfile.write("ZWM_INIT: Getting hostname\n");
+        // _ = try zwm.logfile.write("ZWM_INIT: Getting hostname\n");
         var hostname_buf: [std.posix.HOST_NAME_MAX]u8 = undefined;
         const hostname: []u8 = std.posix.gethostname(&hostname_buf) catch {
-            _ = try zwm.logfile.write("ZWM_INIT: FAILED to get hostname\n");
+            // _ = try zwm.logfile.write("ZWM_INIT: FAILED to get hostname\n");
 
             return undefined;
         };
         std.debug.assert(@TypeOf(hostname) == []u8);
-        _ = try zwm.logfile.write("ZWM_INIT: SUCCESSFULLY fetched hostname\n");
+        // _ = try zwm.logfile.write("ZWM_INIT: SUCCESSFULLY fetched hostname\n");
 
-        _ = try zwm.logfile.write("ZWM_INIT: Attempting X Initializaiton\n");
+        // _ = try zwm.logfile.write("ZWM_INIT: Attempting X Initializaiton\n");
         zwm.x_init.init(zwm.x_init.x_authority, hostname, arena_allocator) catch {
-            _ = try zwm.logfile.write("ZWM_INIT: FAILED X Initialization\n");
+            // _ = try zwm.logfile.write("ZWM_INIT: FAILED X Initialization\n");
         };
-        _ = try zwm.logfile.write("ZWM_INIT: SUCCESSFULLY completed X Initialization\n");
+        // _ = try zwm.logfile.write("ZWM_INIT: SUCCESSFULLY completed X Initialization\n");
 
-        _ = try zwm.logfile.write("ZWM_INIT: Attempting X Connection Initiation\n");
+        // _ = try zwm.logfile.write("ZWM_INIT: Attempting X Connection Initiation\n");
         zwm.x_connection.initiateConnection(
             zwm.x_init,
             @constCast(&arena_allocator),
         ) catch {
-            _ = try zwm.logfile.write("ZWM_INIT: FAILED X Connection Initiation\n");
+            // _ = try zwm.logfile.write("ZWM_INIT: FAILED X Connection Initiation\n");
         };
 
         var xid: XId = XId{
@@ -140,8 +138,8 @@ pub const ZWM = struct {
 
         if (zwm.x_connection.status == .Ok) {
             try xid.init(zwm.x_connection);
-            _ = try zwm.logfile.write("ZWM_INIT: Initializing XID\n");
-            _ = try zwm.logfile.write("ZWM_INIT: SUCCESSFULLY completed X Connection Initiation\n");
+            // _ = try zwm.logfile.write("ZWM_INIT: Initializing XID\n");
+            // _ = try zwm.logfile.write("ZWM_INIT: SUCCESSFULLY completed X Connection Initiation\n");
         }
 
         // TODO: initilize the layout manager and workspace manager
@@ -154,40 +152,40 @@ pub const ZWM = struct {
         };
 
         // Change the attributes of the root window
-        _ = try zwm.logfile.write("ZWM_INIT: Changing attributes of the root window\n");
+        // _ = try zwm.logfile.write("ZWM_INIT: Changing attributes of the root window\n");
         zwm.x_root_window.changeAttributes(&[_]Structs.ValueMask{.{
             .mask = .event_mask,
             .value = zwm.root_event_mask.toInt(),
         }}) catch {
-            _ = try zwm.logfile.write("ZWM_INIT: FAILED to change attributes of the root window\n");
+            // _ = try zwm.logfile.write("ZWM_INIT: FAILED to change attributes of the root window\n");
         };
 
         // Grab Keys
-        _ = try zwm.logfile.write("ZWM_INIT: Grabbing keys\n");
+        // _ = try zwm.logfile.write("ZWM_INIT: Grabbing keys\n");
         Input.ungrabKey(&zwm.x_connection, 0, zwm.x_root_window, Input.Modifiers.any) catch {
-            _ = try zwm.logfile.write("ZWM_INIT: FAILED to ungrab all keys");
+            // _ = try zwm.logfile.write("ZWM_INIT: FAILED to ungrab all keys");
         };
-        _ = try zwm.logfile.write("ZWM_INIT: Initializing KeySym table\n");
+        // _ = try zwm.logfile.write("ZWM_INIT: Initializing KeySym table\n");
         zwm.keysym_table = Input.KeysymTable.init(&zwm.x_connection) catch {
-            _ = try zwm.logfile.write("ZWM_INIT: FAILED to grab keys\n");
+            // _ = try zwm.logfile.write("ZWM_INIT: FAILED to grab keys\n");
             return undefined;
         };
         std.debug.assert(@TypeOf(zwm.keysym_table) == Input.KeysymTable);
-        _ = try zwm.logfile.write("ZWM_INIT: Grabbing Windows+Enter Key\n");
+        // _ = try zwm.logfile.write("ZWM_INIT: Grabbing Windows+Enter Key\n");
         Input.grabKey(&zwm.x_connection, .{ .grab_window = zwm.x_root_window, .modifiers = .{ .mod4 = true }, .key_code = zwm.keysym_table.keysymToKeycode(Keys.XK_Return) }) catch {
-            _ = try zwm.logfile.write("ZWM_INIT: ERROR grabbing enter key");
+            // _ = try zwm.logfile.write("ZWM_INIT: ERROR grabbing enter key");
         };
-        _ = try zwm.logfile.write("ZWM_INIT: SUCCESSFULLY grabbed keys\n");
+        // _ = try zwm.logfile.write("ZWM_INIT: SUCCESSFULLY grabbed keys\n");
 
         // Initialize the layout manager
         zwm.x_layout.init(.{
             .width = zwm.x_connection.screens[0].width_pixel,
             .height = zwm.x_connection.screens[0].height_pixel,
         }) catch {
-            zwm.logfile.write("ZWM_INIT: ERROR initializing the layout");
+            // _ = try zwm.logfile.write("ZWM_INIT: ERROR initializing the layout");
         };
 
-        _ = try zwm.logfile.write("ZWM_INIT: SUCCESSFULLY completed zwm initialization\n");
+        // _ = try zwm.logfile.write("ZWM_INIT: SUCCESSFULLY completed zwm initialization\n");
         return zwm;
     }
 
@@ -206,27 +204,31 @@ pub const ZWM = struct {
             try self.x_connection.stream.reader().readNoEof(&bytes);
 
             switch (bytes[0]) {
-                0 => _ = try self.logfile.write("ZWM_RUN: Read an error event\n"),
-                1 => _ = try self.logfile.write("ZWM_RUN: ERROR READING EVENT STREAM\n"),
+                0 => _ = {
+                    // try self.logfile.write("ZWM_RUN: Read an error event\n");
+                },
+                1 => _ = {
+                    // try self.logfile.write("ZWM_RUN: ERROR READING EVENT STREAM\n");
+                },
                 2...34 => try self.handleEvent(bytes),
                 else => {
-                    _ = try self.logfile.write("ZWM_RUN: somethign went wrong\n");
+                    // _ = try self.logfile.write("ZWM_RUN: somethign went wrong\n");
                 }, // unahandled
             }
         }
     }
 
     fn handleEvent(self: ZWM, buffer: [32]u8) !void {
-        _ = try self.logfile.write("ZWM_RUN_HANDLEEVENT: Event Notification\n");
+        // _ = try self.logfile.write("ZWM_RUN_HANDLEEVENT: Event Notification\n");
         const event: Events.Event = Events.Event.fromBytes(buffer);
 
         switch (event) {
             .key_press => |key| {
-                _ = try self.logfile.write("ZWM_RUN_HANDLEEVENT_SWITCH: KEYPRESS event notification\n");
+                // _ = try self.logfile.write("ZWM_RUN_HANDLEEVENT_SWITCH: KEYPRESS event notification\n");
                 try self.onKeyPress(key);
             },
             .map_request => |map| {
-                _ = try self.logfile.write("ZWM_RUN_HANDLEEVENT_SWITCH: MAPREQUEST event notification\n");
+                // _ = try self.logfile.write("ZWM_RUN_HANDLEEVENT_SWITCH: MAPREQUEST event notification\n");
                 try self.onMap(map);
             },
 
@@ -236,14 +238,14 @@ pub const ZWM = struct {
             // TODO: enter notify,
             // TODO: leave notify
             else => {
-                const formatted_event = try std.fmt.allocPrint(self.allocator, "Unmhandled Event: {any}\n", .{@intFromEnum(event)});
-                _ = try self.logfile.write(formatted_event);
+                // const formatted_event = try std.fmt.allocPrint(self.allocator, "Unmhandled Event: {any}\n", .{@intFromEnum(event)});
+                // _ = try self.logfile.write(formatted_event);
             },
         }
     }
 
     fn onKeyPress(self: ZWM, event: Events.InputDeviceEvent) !void {
-        _ = try self.logfile.write("ZWM_RUN_HANDLEEVENT_ONKEYPRESS: Attempting to Handle keypress event\n");
+        // _ = try self.logfile.write("ZWM_RUN_HANDLEEVENT_ONKEYPRESS: Attempting to Handle keypress event\n");
 
         const mod4 = Input.Modifiers{
             .mod4 = true,
@@ -251,11 +253,11 @@ pub const ZWM = struct {
         const argv = &[_][]const u8{"kitty"};
 
         if (Keys.XK_Return == self.keysym_table.keycodeToKeysym(event.detail) and mod4.toInt() == event.state) {
-            _ = try self.logfile.write("Trying to open cmd\n");
+            // _ = try self.logfile.write("Trying to open cmd\n");
             runCmd(self.allocator, argv) catch {
-                _ = try self.logfile.write("ZWM_RUN_HANDLEEVENT_ONKEYPRESS_IF_XKRETURN: FAILED to run command\n");
+                // _ = try self.logfile.write("ZWM_RUN_HANDLEEVENT_ONKEYPRESS_IF_XKRETURN: FAILED to run command\n");
             };
-            _ = try self.logfile.write("Opened cmd\n");
+            // _ = try self.logfile.write("Opened cmd\n");
         }
     }
 

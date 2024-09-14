@@ -4,6 +4,8 @@ const std = @import("std");
 const builtin = @import("builtin");
 const root = @import("root");
 
+const Logger = @import("Log.zig");
+
 const ZWM = @import("ZWM.zig").ZWM;
 
 pub fn main() !void {
@@ -16,22 +18,17 @@ pub fn main() !void {
     defer heap_arena_allocator.deinit();
     const arena_allocator = heap_arena_allocator.allocator();
 
-    const logfile: std.fs.File = try std.fs.cwd().createFile("zigwm.log", .{ .read = true });
-    defer logfile.close();
+    Logger.initializeLogging(@constCast(&allocator)) catch {
+        return;
+    };
+    defer Logger.Log.close();
 
-    const message = "MAIN: Initializing Startup Process\n";
-    const time = try std.fmt.allocPrint(allocator, "{d} ", .{std.time.timestamp()});
-    const combine: [2][]const u8 = [_][]const u8{ time, message };
-
-    const combined = try std.mem.concat(allocator, u8, &combine);
-    _ = try logfile.write(combined);
-
+    try Logger.Log.info("MAIN", "Initializing startup process");
     // TODO: error handling
-    const zwm: ZWM = try ZWM.init(@constCast(&allocator), arena_allocator, logfile);
+    const zwm: ZWM = try ZWM.init(@constCast(&allocator), arena_allocator);
     defer zwm.close();
 
-    _ = try logfile.write("MAIN: Completed zwm initialization method\n");
+    try Logger.Log.info("MAIN: ", "Completed zwm initialization method");
 
-    _ = try logfile.write("Running WIndow Manager\n");
     try zwm.run();
 }
