@@ -1,6 +1,6 @@
 name = zigwm
 
-files = src/main.zig
+files = src/main.zig src/Connection.zig src/Init.zig src/Layout.zig src/Log.zig src/Window.zig src/Workspace.zig src/Xid.zig src/ZWM.zig
 
 .PHONY: build
 build:
@@ -12,11 +12,11 @@ run:
 
 .PHONY: test
 test:
-	zig test $(files)
+	for file in $(files); do zig test $$file; done
 
 .PHONY: all
 all:
-	zig build && zig test $(files)
+	zig build
 
 .PHONY: clean
 clean:

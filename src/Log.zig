@@ -18,7 +18,7 @@ const Logger = struct {
     allocator: std.mem.Allocator,
     log_file: std.fs.File,
 
-    pub fn timestampToDatetime(timestamp: i64, allocator: std.mem.Allocator) []const u8 {
+    pub fn timestampToDatetime(self: *const Logger, timestamp: i64) []const u8 {
         // const number_of_leap_seconds: comptime_int = 27;
         var current_year_unix: u32 = 1970;
 
@@ -103,14 +103,14 @@ const Logger = struct {
             }
         }
 
-        // adjust for AEST time
-        const hours = extra_time / 3600 + 10;
+        // TODO: adjust for AEST time
+        const hours = extra_time / 3600;
         const minutes = @divExact(@mod(extra_time, 3600), 60);
         const seconds = @mod(@mod(extra_time, 3600), 60);
 
-        // YYYY/MM/DD
+        // YYYY/MM/DD-HH:MM:SS
         // In UTC time, because the current computer system is in UTC time, adjust for AEST
-        const formatted_time: []u8 = std.fmt.allocPrint(allocator, "{d}/{d}/{d}-{d}:{d}:{d}", .{ current_year_unix, month, @floor(date), @floor(hours), minutes, seconds }) catch {
+        const formatted_time: []u8 = std.fmt.allocPrint(self.allocator, "{d}/{d}/{d}-{d}:{d}:{d}", .{ current_year_unix, month, @floor(date), @floor(hours), minutes, seconds }) catch {
             // TODO: handle errors
             return undefined;
         };
@@ -118,13 +118,13 @@ const Logger = struct {
         return formatted_time;
     }
 
-    pub fn close(self: *Logger) void {
+    pub fn close(self: *const Logger) void {
         self.log_file.close();
     }
 
     pub fn info(self: *Logger, namespace: []const u8, message: []const u8) !void {
         const current_time = std.time.timestamp();
-        const formatted_time = timestampToDatetime(current_time, self.allocator);
+        const formatted_time = self.timestampToDatetime(current_time);
 
         const combined = std.fmt.allocPrint(self.allocator, "INFO-{s}-{s}: {s}\n", .{ namespace, formatted_time, message }) catch {
             // return error, actually
@@ -133,6 +133,10 @@ const Logger = struct {
 
         _ = try self.log_file.write(combined);
     }
+
+    // warning
+    // error
+    // fatal
 };
 
 pub var Log: Logger = Logger{
@@ -147,7 +151,22 @@ pub fn initializeLogging(allocator: *std.mem.Allocator) !void {
 }
 
 // How can we test this?
-test "Time" {
+test "LogTest" {
+    var gpa_allocator = std.testing.allocator_instance;
+    const allocator = gpa_allocator.allocator();
+
+    const TestLogger: Logger = Logger{
+        .allocator = allocator,
+        .log_file = try std.fs.cwd().createFile("testlogfile.log", .{ .read = true }),
+    };
+    defer TestLogger.close();
+
+    // all shall be tested in UTC in 24 Hour Time
+    // with the format YYYY/M,M/D,D-H,H:MM:SS
+    const timestamp_1: u32 = 261325361;
+    const datetime_1: []const u8 = TestLogger.timestampToDatetime(timestamp_1);
+    try std.testing.expect(std.mem.eql(u8, datetime_1, "1978/4/13-14:22:41"));
+
     // create some custom timestamps, paste it into a unix epoch converter and check if the two strings match
     // contribute one every time u modify this file to make sure it works well
 }
