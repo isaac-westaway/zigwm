@@ -19,16 +19,14 @@ const Logger = struct {
     log_file: std.fs.File,
 
     pub fn timestampToDatetime(timestamp: i64, allocator: std.mem.Allocator) []const u8 {
-        const number_of_leap_seconds: comptime_int = 27;
+        // const number_of_leap_seconds: comptime_int = 27;
         var current_year_unix: u32 = 1970;
 
-        const leap_timestamp: f80 = @as(f80, @as(f80, @floatFromInt(number_of_leap_seconds)) + @as(f80, @floatFromInt(timestamp)));
+        // const leap_timestamp: f80 = @as(f80, @as(f80, @floatFromInt(number_of_leap_seconds)) + @as(f80, @floatFromInt(timestamp)));
+        const leap_timestamp: f80 = @as(f80, @floatFromInt(timestamp));
 
         const days_in_months: [12]i32 = [_]i32{ 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 
-        // leap timestamp is 1726277658
-        // number of seconds in a year is 31557600
-        // number of leap seconds is 27
         var extra_days: f80 = 0;
 
         // number of seconds that has passed from jan 1 1970
