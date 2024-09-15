@@ -6,11 +6,14 @@ const Structs = @import("structs.zig");
 const Enums = @import("enums.zig");
 
 // ! this sucks and needs to be done better
+// Should make this a root level file
 const XConnection = @import("../Connection.zig").XConnection;
 const XWindow = @import("../Window.zig").XWindow;
 
-// bandaid, usingnamespace
+// bandaid, usingnamespace does not work
 const keys = @import("keys.zig");
+
+const Logger = @import("../Log.zig");
 
 // most of this is just copied and pasted from @juicebox window manager.
 
@@ -50,6 +53,7 @@ pub const KeysymTable = struct {
 
     // this needes to be done better
     pub fn init(con: *XConnection) !KeysymTable {
+        try Logger.Log.info("ZWM_INIT_KEYSYMTABLE_INIT", "Initializing Input Keysym table");
         const count = con.setup.max_keycode - con.setup.min_keycode + 1;
         try con.send(Structs.KeyboardMappingRequest{
             .first_keycode = con.setup.min_keycode,
@@ -62,7 +66,6 @@ pub const KeysymTable = struct {
 
         for (keysyms) |*keysym| {
             keysym.* = con.stream.reader().readInt(XTypes.Types.Keysym, builtin.target.cpu.arch.endian()) catch |err| {
-                // TODO: builtin logging
                 return err;
             };
         }

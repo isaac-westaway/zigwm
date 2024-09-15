@@ -14,10 +14,8 @@ run:
 test:
 	for file in $(files); do zig test $$file; done
 
-.PHONY: all
-all:
-	zig build
-
 .PHONY: clean
 clean:
-	rm -rf zig-out .zig-cache
+	rm -rf zig-out .zig-cache testlogfile.log
+
+all: build test clean

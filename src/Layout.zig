@@ -8,6 +8,8 @@ const Events = @import("x11/events.zig");
 const XWindow = @import("Window.zig").XWindow;
 const XWorkspace = @import("Workspace.zig").XWorkspace;
 
+const Logger = @import("Log.zig");
+
 pub const XLayout = struct {
     allocator: std.mem.Allocator,
 
@@ -21,6 +23,7 @@ pub const XLayout = struct {
     // workspaces
 
     pub fn init(self: *XLayout, dimensions: struct { width: u16, height: u16 }) !void {
+        try Logger.Log.info("ZWM_INIT_LAYOUT_INIT", "Initializng the Layout Manager");
         self.current = 0;
         self.dimensions.height = dimensions.height;
         self.dimensions.width = dimensions.width;
@@ -59,6 +62,8 @@ pub const XLayout = struct {
 
     pub fn close(self: XLayout) void {
         // ! temporary fix to workspace.deinit
-        self.allocator.destroy(&self.workspaces);
+        for (self.workspaces) |workspace| {
+            try workspace.deinit(@constCast(&self.allocator));
+        }
     }
 };

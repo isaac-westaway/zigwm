@@ -18,6 +18,7 @@ const Logger = struct {
     allocator: std.mem.Allocator,
     log_file: std.fs.File,
 
+    /// Converts a unix epoch timestamp to a datetime in the form YYYY/MM/DD-HH:MM:SS
     pub fn timestampToDatetime(self: *const Logger, timestamp: i64) []const u8 {
         // const number_of_leap_seconds: comptime_int = 27;
         var current_year_unix: u32 = 1970;
@@ -122,6 +123,7 @@ const Logger = struct {
         self.log_file.close();
     }
 
+    // TODO: add struct arguments
     pub fn info(self: *Logger, namespace: []const u8, message: []const u8) !void {
         const current_time = std.time.timestamp();
         const formatted_time = self.timestampToDatetime(current_time);
@@ -134,9 +136,42 @@ const Logger = struct {
         _ = try self.log_file.write(combined);
     }
 
-    // warning
-    // error
-    // fatal
+    pub fn warn(self: *Logger, namespace: []const u8, message: []const u8) !void {
+        const current_time = std.time.timestamp();
+        const formatted_time = self.timestampToDatetime(current_time);
+
+        const combined = std.fmt.allocPrint(self.allocator, "WARNING-{s}-{s}: {s}\n", .{ namespace, formatted_time, message }) catch {
+            // return error, actually
+            return;
+        };
+
+        _ = try self.log_file.write(combined);
+    }
+
+    pub fn err(self: *Logger, namespace: []const u8, message: []const u8) !void {
+        const current_time = std.time.timestamp();
+        const formatted_time = self.timestampToDatetime(current_time);
+
+        const combined = std.fmt.allocPrint(self.allocator, "ERROR-{s}-{s}: {s}\n", .{ namespace, formatted_time, message }) catch {
+            return;
+        };
+
+        _ = try self.log_file.write(combined);
+    }
+
+    /// Will crash the program if called
+    pub fn fatal(self: *Logger, namespace: []const u8, message: []const u8) !void {
+        const current_time = std.time.timestamp();
+        const formatted_time = self.timestampToDatetime(current_time);
+
+        const combined = std.fmt.allocPrint(self.allocator, "ERROR-{s}-{s}: {s}\n", .{ namespace, formatted_time, message }) catch {
+            return;
+        };
+
+        _ = try self.log_file.write(combined);
+
+        std.posix.exit(1);
+    }
 };
 
 pub var Log: Logger = Logger{
@@ -145,6 +180,7 @@ pub var Log: Logger = Logger{
 };
 
 // more parameters such as defining where to open the file etc
+/// Call once in the main function
 pub fn initializeLogging(allocator: *std.mem.Allocator) !void {
     Log.allocator = allocator.*;
     Log.log_file = try std.fs.cwd().createFile("zigwm.log", .{ .read = true });

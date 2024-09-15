@@ -8,6 +8,8 @@ const Utils = @import("x11/utils.zig");
 
 const XInit = @import("Init.zig").XInit;
 
+const Logger = @import("Log.zig");
+
 pub const XConnection = struct {
     allocator: std.mem.Allocator,
     stream: std.net.Stream,
@@ -37,10 +39,6 @@ pub const XConnection = struct {
     }
 
     fn parseSetup(self: *XConnection, allocator: *std.mem.Allocator, buffer: []u8) !void {
-
-        // ! error here
-
-        // nevermind, a status code of 1 is a success
         var initial_setup: Structs.FullSetup = undefined;
         var index: usize = parseSetupType(&initial_setup, buffer);
 
@@ -159,66 +157,46 @@ pub const XConnection = struct {
 
     // TODO: Logging
     pub fn initiateConnection(self: *XConnection, x_init: XInit, arena_allocator: *std.mem.Allocator) !void {
-        // std.log.scoped(.XConnection_initiateConnection).info("Beginning XConnection initialization", .{});
+        try Logger.Log.info("ZWM_INIT_XCONNECTION_INITIATECONNECTION", "Beginning connection initiation process");
         const pad = [3]u8{ 0, 0, 0 };
 
-        // std.log.scoped(.XConnection_initiateConnection).info("Sending name.len and data.len", .{});
         try self.send(Structs.SetupRequest{
             .name_len = @intCast(x_init.x_auth_info.name.len),
             .data_len = @intCast(x_init.x_auth_info.data.len),
         });
 
-        // std.log.scoped(.XConnection_initiateConnection).info("Sending name", .{});
         try self.send(x_init.x_auth_info.name);
 
-        // std.log.scoped(.XConnection_initiateConnection).info("Sending name.len", .{});
         try self.send(pad[0..Utils.xpad(x_init.x_auth_info.name.len)]);
 
-        // std.log.scoped(.XConnection_initiateConnection).info("Sending data", .{});
         try self.send(x_init.x_auth_info.data);
 
-        // std.log.scoped(.XConnection_initiateConnection).info("Sending data.len", .{});
         try self.send(pad[0..Utils.xpad(x_init.x_auth_info.data.len)]);
 
         const stream = self.stream.reader();
 
-        // std.log.scoped(.XConnection_initiateConnection).info("Trying to read response", .{});
         const header: Structs.SetupGeneric = try stream.readStruct(Structs.SetupGeneric);
-        // std.log.scoped(.XConnection_initiateConnection).info("Header Status Early: {}", .{header.status});
+        // const Logger.Log.debug
 
-        // ! TODO: fix the array out of bounds error. the buffer has been allocated // done
-        // ! more than enough memory as a simple workaround
-
-        // std.log.scoped(.XConnection_initiateConnection).info("Trying to load the response into setup_buffer", .{});
-        // std.log.scoped(.XConnection_initiateConnection).info("There is a chance the error is here and the setup buffer isn't large enough", .{});
         const setup_buffer: []u8 = try self.allocator.alloc(u8, header.length * 4);
         defer self.allocator.free(setup_buffer);
 
-        // ! error here
         try stream.readNoEof(setup_buffer);
-
-        // std.log.scoped(.XConnection_initiateConnection).info("Completed stream reading", .{});
-
-        // std.log.scoped(.XConnection_initiateConnection).info("Recieved XServer response for the setup", .{});
         if (header.status == 1) {
             self.status = .Ok;
-            // std.log.scoped(.XConnection_initiateConnection_if).info("Header Status Successful Response: {}\n", .{header.status});
+            try Logger.Log.info("ZWM_INIT_XCONNECTION_INITIATECONNECTION", "XServer response OK");
         } else if (header.status == 0) {
-            // warning means authentication error. should implement logic to fix this by sending Xauthority
-            // contents to the XServer unix domain socket for authentication
-            // std.log.scoped(.XConnection_initiateConnection_if).err("XServer response is a failure: {}", .{header.status});
+            // TODO: handle these errors
             self.status = .Error;
+            try Logger.Log.err("ZWM_INIT_XCONNECTION_INITIATECONNECTION", "XServer failed to read setup request");
         } else {
-            // std.log.scoped(.XConnection_initiateConnection_if).warn("Further authentication is required: {}", .{header.status});
+            // TODO: Handle further authentication
             self.status = .Warning;
+            try Logger.Log.warn("ZWM_INIT_XCONNECTION_INITIATECONNECTION", "Further authentication required");
         }
 
-        // std.debug.assert(header.status == 1);
-
-        // std.log.scoped(.XConnection_initiateConnection).info("Successfully recieved response, trying to parse setup", .{});
         try self.parseSetup(@constCast(&arena_allocator.*), setup_buffer);
-        // std.log.scoped(.XConnection_initiateConnection).info("Completed connection initiation, returning", .{});
-
+        try Logger.Log.info("ZWM_INIT_XCONNECTION_INITIATECONNECTION", "Completed connection initiation");
         return;
     }
 };

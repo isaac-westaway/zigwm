@@ -6,6 +6,8 @@ const Structs = @import("x11/structs.zig");
 
 const XConnection = @import("Connection.zig").XConnection;
 
+const Logger = @import("Log.zig");
+
 pub const XId = struct {
     last: u32,
     max: u32,
@@ -52,7 +54,8 @@ pub const XId = struct {
 
     // does not error
     pub fn init(self: *XId, connection: XConnection) !void {
-        // we could use @setRuntimeSafety(false) in this case
+        try Logger.Log.info("ZWM_INIT_XID_INIT", "Initializing XID");
+
         const inc: u32 = connection.setup.mask & ~connection.setup.mask;
         self.last = 0;
         self.max = 0;

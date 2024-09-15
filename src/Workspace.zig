@@ -40,11 +40,11 @@ pub const XWorkspace = struct {
         return self.window_list.items;
     }
 
-    // TODO: get support on this issue
-    // THis does not work for some reason, it may be an error in the compiler
-    // pub fn deinit(self: XWorkspace, allocator: *std.mem.Allocator) void {
-    //     self.window_list.deinit(@constCast(allocator));
-    // }
+    pub fn deinit(self: *const XWorkspace, allocator: *std.mem.Allocator) !void {
+        var wl: std.ArrayListUnmanaged(XWindow) = @constCast(&self.window_list).*;
+
+        wl.clearAndFree(allocator.*);
+    }
 };
 
 // test for the window list

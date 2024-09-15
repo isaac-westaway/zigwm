@@ -4,9 +4,9 @@ const std = @import("std");
 const builtin = @import("builtin");
 const root = @import("root");
 
-const Logger = @import("Log.zig");
-
 const ZWM = @import("ZWM.zig").ZWM;
+
+const Logger = @import("Log.zig");
 
 pub fn main() !void {
     // for top level allocation
@@ -27,10 +27,11 @@ pub fn main() !void {
     try Logger.Log.info("MAIN", "Initializing startup process");
 
     // TODO: error handling
+    try Logger.Log.info("MAIN", "Beginning ZWM Init");
     const zwm: ZWM = try ZWM.init(@constCast(&allocator), arena_allocator);
-    defer zwm.close();
+    // defer zwm.close() catch {};
+    try Logger.Log.info("MAIN", "Completed zwm initialization method");
 
-    try Logger.Log.info("MAIN: ", "Completed zwm initialization method");
-
+    try Logger.Log.info("MAIN", "Running the Window Manager");
     try zwm.run();
 }
