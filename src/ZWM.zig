@@ -39,6 +39,9 @@ pub const ZWM = struct {
     keysym_table: Input.KeysymTable,
     root_event_mask: Events.Mask,
 
+    /// The currently focused window:
+    focused_window: XWindow,
+
     // create  struct of initialization data, one place of consistency, especially for streams and auth info
 
     // TODO: error handling
@@ -84,6 +87,7 @@ pub const ZWM = struct {
                 .structure_notify = true,
                 .property_change = true,
             },
+            .focused_window = undefined,
         };
 
         // TODO: Crash window manager if this fails
@@ -240,7 +244,8 @@ pub const ZWM = struct {
 
             switch (bytes[0]) {
                 0 => _ = {
-                    try Logger.Log.err("ZWM_RUN", "0: error reading Event Stream");
+                    const combined = try std.fmt.allocPrint(self.allocator, "Error reading stream: 0: {any}", .{bytes});
+                    try Logger.Log.err("ZWM_RUN", combined);
                 },
                 1 => _ = {
                     try Logger.Log.fatal("ZWM_RUN", "1: Should NOT be here");
@@ -256,18 +261,14 @@ pub const ZWM = struct {
 
         switch (event) {
             .key_press => |key| {
-                try Logger.Log.info("ZWM_RUN_HANDLEEVENT", "Key press notification");
                 try self.onKeyPress(key);
             },
 
             .map_request => |map| {
-                try Logger.Log.info("ZWM_RUN_HANDLEEVENT", "Map request notification");
                 try self.onMap(map);
             },
 
             .configure_request => |configuration| {
-                try Logger.Log.info("ZWM_RUN_HANDLEEVENT", "Configure request notification");
-
                 try self.onConfigure(configuration);
             },
 
@@ -334,13 +335,28 @@ pub const ZWM = struct {
     }
 
     fn onMotionNotify(self: ZWM, event: Events.InputDeviceEvent) !void {
+        const window = XWindow{
+            .handle = event.event,
+            .connection = self.x_connection,
+        };
+        _ = window;
+
         if (event.state == 260) {
             try Logger.Log.info("ZWM_RUN_HANDLEEVENT_ONMOTIONNOTIFY", "LEFT click being dragged, 260");
+            // self focused window change position by dragging the event x and y vals // event.event is the window id of the window
 
-            // self focused window change position by dragging the event x and y vals
+            // const mask: Structs.WindowConfigMask = @bitCast(event.state);
+
+            // const window_config = Structs.WindowChanges{
+            //     .x = event.root_x,
+            //     .y = event.root_y,
+            //     .width = self.focused_window.connection.screens[0].width_pixel,
+            //     .height = self.focused_window.connection.screens[0].height_pixel,
+            //     .border_width = 20,
+            // };
+
+            // try window.configure(mask, window_config);
         }
-
-        _ = self;
 
         if (event.state == 1028) {
             try Logger.Log.info("ZWM_RUN_HANDLEEVENT_ONMOTIONNOTIFY", "RIGHT click being dragged, 1028");
@@ -387,6 +403,13 @@ pub const ZWM = struct {
         if (event.event == self.x_root_window.handle) {
             return;
         }
+
+        @constCast(&self.focused_window.handle).* = event.event;
+        @constCast(&self.focused_window.connection).* = self.x_connection;
+
+        const message = try std.fmt.allocPrint(self.allocator, "Focused win: {any}", .{self.focused_window.handle});
+
+        try Logger.Log.info("ZWM_RUN_HANDLEEVENT_ONFOCUS", message);
 
         try self.x_layout.focusWindow(.{
             .handle = event.event,

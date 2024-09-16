@@ -34,9 +34,12 @@ pub const XLayout = struct {
     }
 
     pub fn mapWindow(self: *const XLayout, window: XWindow) !void {
-        var workspace = self.workspaces[self.current];
+        var workspace: *XWorkspace = @constCast(&self.workspaces[self.current]);
 
         try workspace.add(@constCast(&self.allocator), window);
+
+        const combined = try std.fmt.allocPrint(self.allocator, "Mapped window on: {d} With Workspace: {d}", .{ window.handle, workspace.id });
+        try Logger.Log.info("ZWM_RUN_HANDLEEVENT_ONMAP_MAPWINDOW", combined);
 
         // TODO: try self.remapWindows(workspace);
 

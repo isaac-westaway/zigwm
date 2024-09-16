@@ -2,6 +2,8 @@ Overview
 =====
 Simple Dependency free window manager written in Zig
 
+This project is depreceated, due to my lack of knowledge of the X Window System, and will move to another window manager, also in zig, but using a c imported XLib.
+
 > [!WARNING]
 > There is an odd error when the window manager is run with a unix stream socket of X1, an out-of-bounds error will occur in ZWM, GrabKeys, KeySymtoKeyCode and KeySymatCol.
 > Until I fix this, just make sure when running `startx` that the socket is `X0` by running `startx -- :0`
