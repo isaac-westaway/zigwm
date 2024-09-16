@@ -31,6 +31,7 @@ pub const AuthInfo = struct {
     data: []const u8 = undefined,
 };
 
+/// Configure Windows
 pub const WindowChanges = struct {
     x: i16 = 0,
     y: i16 = 0,

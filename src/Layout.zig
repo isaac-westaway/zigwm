@@ -61,6 +61,19 @@ pub const XLayout = struct {
         // implement window focusing, also implement onConfigure
     }
 
+    pub fn resizeWindow(self: *const XLayout, resize_x: u16, resize_y: u16) !void {
+        if (self.workspaces[self.current].focused) |window| {
+            try window.configure(.{
+                .width = true,
+                .height = true,
+                .x = true,
+                .y = true,
+                .border_width = true,
+                .stack_mode = true,
+            }, .{ .width = resize_x, .height = resize_y, .x = 10, .y = 10, .border_width = 5, .stack_mode = 0 });
+        }
+    }
+
     pub fn focusWindow(self: *const XLayout, window: XWindow) !void {
         const old_focused = self.workspaces[self.current].focused;
         _ = old_focused;

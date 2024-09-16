@@ -63,6 +63,7 @@ pub const XWindow = struct {
         try self.connection.send(Structs.MapWindowRequest{ .window = self.handle });
     }
 
+    // ConfigureWindow
     pub fn configure(self: XWindow, mask: Structs.WindowConfigMask, config: Structs.WindowChanges) !void {
         try self.connection.send(
             Structs.ConfigureWindowRequest{

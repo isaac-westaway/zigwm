@@ -244,7 +244,7 @@ pub const ZWM = struct {
 
             switch (bytes[0]) {
                 0 => _ = {
-                    const combined = try std.fmt.allocPrint(self.allocator, "Error reading stream: 0: {any}", .{bytes});
+                    const combined = try std.fmt.allocPrint(self.allocator, "Error reading stream: 0: {d}", .{bytes});
                     try Logger.Log.err("ZWM_RUN", combined);
                 },
                 1 => _ = {
@@ -360,6 +360,8 @@ pub const ZWM = struct {
 
         if (event.state == 1028) {
             try Logger.Log.info("ZWM_RUN_HANDLEEVENT_ONMOTIONNOTIFY", "RIGHT click being dragged, 1028");
+
+            try self.x_layout.resizeWindow(@as(u16, @intCast(event.event_x)), @as(u16, @intCast(event.event_y)));
 
             // self focused window change position by dragging event y and x vals
         }
