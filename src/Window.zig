@@ -48,7 +48,7 @@ pub const XWindow = struct {
         try self.connection.send(request.pad0[0..Utils.xpad(data.len())]) catch std.debug.print("error", .{});
     }
 
-    pub fn changeAttributes(self: *XWindow, values: []const Structs.ValueMask) !void {
+    pub fn changeAttributes(self: *const XWindow, values: []const Structs.ValueMask) !void {
         const mask: u32 = blk: {
             var tmp: u32 = 0;
             for (values) |val| tmp |= val.mask.toInt();
@@ -59,8 +59,37 @@ pub const XWindow = struct {
         for (values) |val| try self.connection.send(val.value);
     }
 
-    pub fn map(self: *XWindow) !void {
+    pub fn map(self: *const XWindow) !void {
         try self.connection.send(Structs.MapWindowRequest{ .window = self.handle });
+    }
+
+    pub fn configure(self: XWindow, mask: Structs.WindowConfigMask, config: Structs.WindowChanges) !void {
+        try self.connection.send(
+            Structs.ConfigureWindowRequest{
+                .length = @sizeOf(Structs.ConfigureWindowRequest) / 4 + Structs.maskLen(mask),
+                .window = self.handle,
+                .mask = mask.toInt(),
+            },
+        );
+
+        inline for (std.meta.fields(Structs.WindowConfigMask)) |field| {
+            if (@TypeOf(field) == bool and @field(mask, field.name)) {
+                //@compileLog(@typeInfo(@TypeOf(@field(config, field.name))).Int);
+                if (@typeInfo(@TypeOf(@field(config, field.name))).Int.signedness == .signed) {
+                    try self.connection.send(@as(i32, @field(config, field.name)));
+                } else {
+                    try self.connection.send(@as(u32, @field(config, field.name)));
+                }
+            }
+        }
+    }
+
+    pub fn inputFocus(self: *const XWindow) !void {
+        try self.connection.send(Structs.SetInputFocusRequest{
+            .window = self.handle,
+            .time_stamp = 0,
+            .revert_to = 1,
+        });
     }
 
     pub fn initializeRootWindow(self: *XWindow) !void {
@@ -85,6 +114,7 @@ pub const XWindow = struct {
             .height = options.height,
             .visual = self.connection.screens[0].root_visual,
             .value_mask = mask,
+            .border_width = 10,
             .class = options.class.toInt(),
         };
 

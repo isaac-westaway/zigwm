@@ -1,6 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
+const Events = @import("events.zig");
 const XTypes = @import("types.zig");
 const Structs = @import("structs.zig");
 const Enums = @import("enums.zig");
@@ -41,6 +42,57 @@ pub const Modifiers = packed struct {
         return @bitCast(self);
     }
 };
+
+/// Options to set when grabbing a button
+pub const GrabButtonOptions = struct {
+    owner_events: bool = false,
+    /// which pointer events to grab
+    event_mask: Events.Mask = .{},
+    /// How events are triggered. Async by default
+    pointer_mode: GrabMode = .@"async",
+    /// How events are triggered. Async by default
+    keyboard_mode: GrabMode = .@"async",
+    /// The window that owns the grab
+    grab_window: XWindow,
+    /// The window where the events are sent to
+    confine_to: XWindow,
+    /// Which cursor to show, 0 (none) by default
+    cursor: XTypes.Types.Cursor = 0,
+    /// Which button to grab
+    button: u8,
+    /// The modifier required to grab a button
+    modifiers: Modifiers,
+};
+
+/// Whether the grab mode should be sync -or asynchronous
+pub const GrabMode = enum(u8) {
+    sync = 0,
+    @"async" = 1,
+};
+
+/// Grabs a button and binds it to specific windows
+pub fn grabButton(conn: *XConnection, options: GrabButtonOptions) !void {
+    try conn.send(Structs.GrabButtonRequest{
+        .owner_events = @intFromBool(options.owner_events),
+        .grab_window = options.grab_window.handle,
+        .event_mask = @truncate(options.event_mask.toInt()),
+        .pointer_mode = @intFromEnum(options.pointer_mode),
+        .keyboard_mode = @intFromEnum(options.keyboard_mode),
+        .confine_to = options.confine_to.handle,
+        .cursor = options.cursor,
+        .button = options.button,
+        .modifiers = options.modifiers.toInt(),
+    });
+}
+
+/// Ungrabs a button and its modifiers. Use 0 for `button` to ungrab all buttons
+pub fn ungrabButton(conn: *XConnection, button: u8, window: XWindow, modifiers: Modifiers) !void {
+    try conn.send(Structs.UngrabButtonRequest{
+        .button = button,
+        .window = window.handle,
+        .modifiers = modifiers.toInt(),
+    });
+}
 
 pub const KeysymTable = struct {
     // list is an slice of 32 bit chars

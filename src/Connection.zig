@@ -142,7 +142,7 @@ pub const XConnection = struct {
         return self.stream.reader().readStruct(T);
     }
 
-    pub fn send(self: *XConnection, data: anytype) !void {
+    pub fn send(self: *const XConnection, data: anytype) !void {
         const dataType = @TypeOf(data);
 
         switch (dataType) {

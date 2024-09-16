@@ -4,6 +4,18 @@ const builtin = @import("builtin");
 const XType = @import("types.zig");
 const Enums = @import("enums.zig");
 
+// ! TODO: Should NOT be here
+pub fn maskLen(mask: anytype) u16 {
+    const T = @TypeOf(mask);
+    std.debug.assert(@typeInfo(T) == .Struct);
+
+    var len: u16 = 0;
+    inline for (std.meta.fields(T)) |field| {
+        if (@TypeOf(field) == bool and @field(mask, field.name)) len += 1;
+    }
+    return len;
+}
+
 /// basic Structs
 pub const ValueMask = struct {
     mask: Enums.WindowAttributes,
@@ -17,6 +29,16 @@ pub const AuthInfo = struct {
     number: []const u8 = undefined,
     name: []const u8 = undefined,
     data: []const u8 = undefined,
+};
+
+pub const WindowChanges = struct {
+    x: i16 = 0,
+    y: i16 = 0,
+    width: u16 = 0,
+    height: u16 = 0,
+    border_width: u16 = 0,
+    sibling: XType.Types.Window = 0,
+    stack_mode: u8 = 0,
 };
 
 pub const CreateWindowOptions = struct {
@@ -36,6 +58,29 @@ pub const SetupRequest = extern struct {
     name_len: u16,
     data_len: u16,
     pad1: [2]u8 = [_]u8{ 0, 0 },
+};
+
+pub const SetInputFocusRequest = extern struct {
+    major_opcode: u8 = 42,
+    revert_to: u8,
+    length: u16 = @sizeOf(SetInputFocusRequest) / 4,
+    window: XType.Types.Window,
+    time_stamp: u32,
+};
+
+pub const WindowConfigMask = packed struct {
+    x: bool = false,
+    y: bool = false,
+    width: bool = false,
+    height: bool = false,
+    border_width: bool = false,
+    sibling: bool = false,
+    stack_mode: bool = false,
+    pad: u9 = 0,
+
+    pub fn toInt(self: WindowConfigMask) u16 {
+        return @bitCast(self);
+    }
 };
 
 pub const ChangeWindowAttributes = extern struct {
@@ -65,6 +110,15 @@ pub const InputDeviceEvent = extern struct {
     pub fn sameScreen(self: InputDeviceEvent) bool {
         return self.same_screen == 1;
     }
+};
+
+pub const ConfigureWindowRequest = extern struct {
+    major_opcode: u8 = 12,
+    pad: u8 = 0,
+    length: u16,
+    window: XType.Types.Window,
+    mask: u16,
+    pad1: [2]u8 = [_]u8{ 0, 0 },
 };
 
 pub const UngrabKeyRequest = extern struct {
@@ -113,6 +167,29 @@ pub const KeyboardMappingRequest = extern struct {
     first_keycode: XType.Types.Keycode,
     count: u8,
     pad1: [2]u8 = [_]u8{ 0, 0 },
+};
+
+pub const GrabButtonRequest = extern struct {
+    major_opcode: u8 = 28,
+    owner_events: u8,
+    length: u16 = @sizeOf(GrabButtonRequest) / 4, // 6
+    grab_window: XType.Types.Window,
+    event_mask: u16,
+    pointer_mode: u8,
+    keyboard_mode: u8,
+    confine_to: XType.Types.Window,
+    cursor: XType.Types.Cursor,
+    button: u8,
+    pad0: u8 = 0,
+    modifiers: u16,
+};
+
+pub const UngrabButtonRequest = extern struct {
+    major_opcode: u8 = 29,
+    button: u8,
+    length: u16 = @sizeOf(UngrabButtonRequest) / 4, // 3
+    window: XType.Types.Window,
+    modifiers: u16,
 };
 
 pub const GrabKeyRequest = extern struct {

@@ -166,23 +166,43 @@ pub const ZWM = struct {
         };
         try Logger.Log.info("ZWM_INIT", "Successfully modified attributes to grab events");
 
-        // Grab Keys
+        // Ungrab Keys
         Input.ungrabKey(&zwm.x_connection, 0, zwm.x_root_window, Input.Modifiers.any) catch {
             try Logger.Log.err("ZWM_INIT", "Unable to clean and ungrab all keys, proceeding");
         };
+        Input.ungrabButton(&zwm.x_connection, 0, zwm.x_root_window, Input.Modifiers.any) catch {
+            try Logger.Log.err("ZWM_INIT", "Unable to grab mouse buttons");
+        };
+
+        // Grab Keys
         try Logger.Log.info("ZWM_INIT", "Initializing keysym table");
         zwm.keysym_table = Input.KeysymTable.init(&zwm.x_connection) catch {
             try Logger.Log.fatal("ZWM_INIT", "Unable to initilize keysym table");
             return undefined;
         };
         std.debug.assert(@TypeOf(zwm.keysym_table) == Input.KeysymTable);
+        // Grab Win+Enter key
         Input.grabKey(&zwm.x_connection, .{ .grab_window = zwm.x_root_window, .modifiers = .{ .mod4 = true }, .key_code = zwm.keysym_table.keysymToKeycode(Keys.XK_Return) }) catch {
             try Logger.Log.fatal("ZWM_INIT", "Unable to grab XK_ENTER");
         };
+        // Grab Win+Esc key
         Input.grabKey(&zwm.x_connection, .{ .grab_window = zwm.x_root_window, .modifiers = .{ .mod4 = true }, .key_code = zwm.keysym_table.keysymToKeycode(Keys.XK_Escape) }) catch {
             try Logger.Log.fatal("ZWM_INIT", "Unable to grab XK_ESCAPE");
         };
         try Logger.Log.info("ZWM_INIT", "Successfully grabbed keys");
+
+        // Motion Mouse Keys
+        Input.grabButton(&zwm.x_connection, .{
+            .confine_to = zwm.x_root_window,
+            .grab_window = zwm.x_root_window,
+            .event_mask = .{ .button_motion = true },
+            .button = 0,
+            .modifiers = .{ .control = true },
+        }) catch {
+            try Logger.Log.fatal("ZWM_INIT", "Unable to grab Button Left keys");
+        };
+
+        try Logger.Log.info("ZWM_INIT", "Successfully grabbed mouse keys");
 
         // Initialize the layout manager
         try Logger.Log.info("ZWM_INIT", "Initializing the Layout Manager");
@@ -212,7 +232,7 @@ pub const ZWM = struct {
         std.posix.exit(1);
     }
 
-    pub fn run(self: ZWM) !void {
+    pub fn run(self: *const ZWM) !void {
         try Logger.Log.info("ZWM_RUN", "Inside the Run loop");
         while (true) {
             var bytes: [32]u8 = undefined;
@@ -231,9 +251,7 @@ pub const ZWM = struct {
         }
     }
 
-    fn handleEvent(self: ZWM, buffer: [32]u8) !void {
-        try Logger.Log.info("ZWM_RUN_HANDLEEVENT", "Handling Event");
-
+    fn handleEvent(self: *const ZWM, buffer: [32]u8) !void {
         const event: Events.Event = Events.Event.fromBytes(buffer);
 
         switch (event) {
@@ -247,8 +265,10 @@ pub const ZWM = struct {
                 try self.onMap(map);
             },
 
-            .configure_request => {
+            .configure_request => |configuration| {
                 try Logger.Log.info("ZWM_RUN_HANDLEEVENT", "Configure request notification");
+
+                try self.onConfigure(configuration);
             },
 
             .map_notify => {
@@ -267,35 +287,88 @@ pub const ZWM = struct {
                 try Logger.Log.info("ZWM_RUN_HANDLEEVENT", "Destroy notify notification");
             },
 
-            .enter_notify => {
-                try Logger.Log.info("ZWM_RUN_HANDLEEVENT", "Enter notify notification");
+            .enter_notify => |enter| {
+                try self.onFocus(enter);
             },
 
             .leave_notify => {
                 try Logger.Log.info("ZWM_RUN_HANDLEEVENT", "Leave notify notification");
             },
 
+            .button_press => |button| {
+                try Logger.Log.info("ZWM_RUN_HANDLEEVENT", "Button press notification");
+
+                try self.onButtonPress(button);
+            },
+
+            .motion_notify => |motion| {
+                try self.onMotionNotify(motion);
+            },
+
             else => {
-                const formatted_event = try std.fmt.allocPrint(self.allocator, "Unhandled Event: {any}\n", .{@intFromEnum(event)});
+                const formatted_event = try std.fmt.allocPrint(self.allocator, "Unhandled Event: {d}\n", .{@intFromEnum(event)});
                 try Logger.Log.warn("ZWM_RUN_HANDLEEVENT", formatted_event);
             },
         }
     }
 
-    fn onKeyPress(self: ZWM, event: Events.InputDeviceEvent) !void {
-        // _ = try self.logfile.write("ZWM_RUN_HANDLEEVENT_ONKEYPRESS: Attempting to Handle keypress event\n");
+    fn onConfigure(self: ZWM, event: Events.ConfigureRequest) !void {
+        const window = XWindow{
+            .handle = event.window,
+            .connection = self.x_connection,
+        };
 
+        const mask: Structs.WindowConfigMask = @bitCast(event.mask);
+
+        const window_config = Structs.WindowChanges{
+            .x = event.x,
+            .y = event.y,
+            .width = event.width,
+            .height = event.height,
+            .border_width = event.border_width,
+            .sibling = event.sibling,
+            .stack_mode = event.stack_mode,
+        };
+
+        try window.configure(mask, window_config);
+    }
+
+    fn onMotionNotify(self: ZWM, event: Events.InputDeviceEvent) !void {
+        if (event.state == 260) {
+            try Logger.Log.info("ZWM_RUN_HANDLEEVENT_ONMOTIONNOTIFY", "LEFT click being dragged, 260");
+
+            // self focused window change position by dragging the event x and y vals
+        }
+
+        _ = self;
+
+        if (event.state == 1028) {
+            try Logger.Log.info("ZWM_RUN_HANDLEEVENT_ONMOTIONNOTIFY", "RIGHT click being dragged, 1028");
+
+            // self focused window change position by dragging event y and x vals
+        }
+    }
+
+    fn onButtonPress(self: ZWM, event: Events.InputDeviceEvent) !void {
+        _ = self;
+        _ = event;
+        try Logger.Log.info("ZWM_RUN_HANDLEEVENT_ONBUTTONPRESS", "Button Press Event");
+    }
+
+    fn onKeyPress(self: ZWM, event: Events.InputDeviceEvent) !void {
         const mod4 = Input.Modifiers{
             .mod4 = true,
         };
+
+        const but1 = Input.Modifiers{
+            .but1 = true,
+        };
+        _ = but1;
+
         const argv = &[_][]const u8{"kitty"};
 
         if (Keys.XK_Return == self.keysym_table.keycodeToKeysym(event.detail) and mod4.toInt() == event.state) {
-            // _ = try self.logfile.write("Trying to open cmd\n");
-            runCmd(self.allocator, argv) catch {
-                // _ = try self.logfile.write("ZWM_RUN_HANDLEEVENT_ONKEYPRESS_IF_XKRETURN: FAILED to run command\n");
-            };
-            // _ = try self.logfile.write("Opened cmd\n");
+            runCmd(self.allocator, argv) catch {};
         }
 
         if (Keys.XK_Escape == self.keysym_table.keycodeToKeysym(event.detail) and mod4.toInt() == event.state) {
@@ -308,6 +381,17 @@ pub const ZWM = struct {
         try self.x_layout.mapWindow(window);
 
         // map the window in a layout manager
+    }
+
+    fn onFocus(self: *const ZWM, event: Events.PointerWindowEvent) !void {
+        if (event.event == self.x_root_window.handle) {
+            return;
+        }
+
+        try self.x_layout.focusWindow(.{
+            .handle = event.event,
+            .connection = self.x_connection,
+        });
     }
 
     fn runCmd(allocator: std.mem.Allocator, cmd: []const []const u8) !void {

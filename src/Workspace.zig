@@ -15,7 +15,7 @@ pub const XWorkspace = struct {
     id: usize,
     name: ?[]const u8,
 
-    pub fn init(self: *XWorkspace, idx: usize) XWorkspace {
+    pub fn init(self: *const XWorkspace, idx: usize) XWorkspace {
         return .{
             .window_list = self.window_list,
             .mode = .tiled,
@@ -31,19 +31,17 @@ pub const XWorkspace = struct {
         (try self.window_list.addOne(allocator.*)).* = window;
     }
 
-    pub fn contains(self: *XWorkspace, handle: Types.Types.Window) bool {
+    pub fn contains(self: *const XWorkspace, handle: Types.Types.Window) bool {
         for (self.items()) |w| if (w.handle == handle) return true;
         return false;
     }
 
-    pub fn items(self: *XWorkspace) []const XWindow {
+    pub fn items(self: *const XWorkspace) []const XWindow {
         return self.window_list.items;
     }
 
-    pub fn deinit(self: *const XWorkspace, allocator: *std.mem.Allocator) !void {
-        var wl: std.ArrayListUnmanaged(XWindow) = @constCast(&self.window_list).*;
-
-        wl.clearAndFree(allocator.*);
+    pub fn deinit(self: *XWorkspace, allocator: *std.mem.Allocator) !void {
+        self.window_list.clearAndFree(allocator.*);
     }
 };
 

@@ -15,6 +15,7 @@ Todos
 - catch statements should switch between errors instead of just erroring
 - send workspace list (desktop_properties) and client list (wmctrl)
 - all the todos in the comments
+- delete zigwm.log on startup
 
 Credits
 ======

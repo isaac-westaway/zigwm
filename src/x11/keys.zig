@@ -4,6 +4,7 @@
 
 /// Number pad enter
 pub const XK_Enter = 0xff8d;
+pub const XK_ctrlL = 0x25;
 
 pub const XK_VoidSymbol = 0xffffff;
 pub const XK_BackSpace = 0xff08;

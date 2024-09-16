@@ -28,9 +28,8 @@ pub const XLayout = struct {
         self.dimensions.height = dimensions.height;
         self.dimensions.width = dimensions.width;
 
-        for (self.workspaces, 0..) |ws, index| {
-            var unconst_ws: XWorkspace = @constCast(&ws).*;
-            self.workspaces[index] = unconst_ws.init(index);
+        for (&self.workspaces, 0..) |*ws, index| {
+            ws.* = ws.*.init(index);
         }
     }
 
@@ -39,7 +38,6 @@ pub const XLayout = struct {
 
         try workspace.add(@constCast(&self.allocator), window);
 
-        // what if we dont remap the windows and just check if it works first
         // TODO: try self.remapWindows(workspace);
 
         const window_event_mask = Events.Mask{
@@ -47,23 +45,35 @@ pub const XLayout = struct {
             .focus_change = true,
         };
 
-        var _window: XWindow = @constCast(&window).*;
-
-        try _window.changeAttributes(&[_]Structs.ValueMask{.{
+        try window.changeAttributes(&[_]Structs.ValueMask{.{
             .mask = .event_mask,
             .value = window_event_mask.toInt(),
         }});
         // change property to update the net client list
 
-        try _window.map();
+        try window.map();
 
-        // TODO: logging
+        try self.focusWindow(window);
+
+        // implement window focusing, also implement onConfigure
+    }
+
+    pub fn focusWindow(self: *const XLayout, window: XWindow) !void {
+        const old_focused = self.workspaces[self.current].focused;
+        _ = old_focused;
+        // TODO: change border of old focused
+
+        @constCast(&self.workspaces[self.current].focused).* = window;
+
+        try window.inputFocus();
+
+        try window.changeAttributes(&[_]Structs.ValueMask{.{ .mask = .border_pixel, .value = 0x014c82 }});
     }
 
     pub fn close(self: XLayout) void {
-        // ! temporary fix to workspace.deinit
         for (self.workspaces) |workspace| {
-            try workspace.deinit(@constCast(&self.allocator));
+            var wl: *XWorkspace = @constCast(&workspace);
+            try wl.deinit(@constCast(&self.allocator));
         }
     }
 };
